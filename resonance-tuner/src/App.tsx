@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useAudio } from './hooks/useAudio';
 import { PhaseRing } from './components/visualizers/PhaseRing';
 import { TensionSafety } from './components/novice/TensionSafety';
