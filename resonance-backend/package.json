@@ -1,0 +1,14 @@
+{
+  "name": "resonance-backend",
+  "version": "1.0.0",
+  "main": "worker.js",
+  "scripts": {
+    "deploy": "npx wrangler deploy worker.js"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^0.6.0"
+  },
+  "devDependencies": {
+    "wrangler": "^3.0.0"
+  }
+}
