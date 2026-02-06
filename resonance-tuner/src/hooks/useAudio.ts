@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { PitchResult } from '../types/audio';
+import type { PitchResult } from '../types/audio';
 
 export const useAudio = () => {
   const [isActive, setIsActive] = useState(false);

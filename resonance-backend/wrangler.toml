@@ -1,0 +1,7 @@
+name = "resonance-backend"
+main = "worker.js"
+compatibility_date = "2024-02-05"
+
+[vars]
+# Non-sensitive variables go here
+NODE_VERSION = "20"

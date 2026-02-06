@@ -6,7 +6,7 @@
     "deploy": "npx wrangler deploy worker.js"
   },
   "dependencies": {
-    "@neondatabase/serverless": "^0.6.0"
+    "@neondatabase/serverless": "^0.6.1"
   },
   "devDependencies": {
     "wrangler": "^3.0.0"
