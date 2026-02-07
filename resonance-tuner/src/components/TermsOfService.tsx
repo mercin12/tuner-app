@@ -2,9 +2,10 @@ import React from 'react';
 
 interface TermsOfServiceProps {
   onAccept: () => void;
+  onViewFullTerms: () => void;
 }
 
-export const TermsOfService: React.FC<TermsOfServiceProps> = ({ onAccept }) => {
+export const TermsOfService: React.FC<TermsOfServiceProps> = ({ onAccept, onViewFullTerms }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/90 backdrop-blur-md">
       <div className="bg-slate-900 border border-red-900/50 rounded-2xl max-w-md w-full p-8 shadow-2xl shadow-red-900/20">
@@ -31,6 +32,13 @@ export const TermsOfService: React.FC<TermsOfServiceProps> = ({ onAccept }) => {
             <li>Resonance Tuner provides measurement data only and cannot physically prevent string breakage.</li>
           </ul>
         </div>
+
+        <button 
+          onClick={onViewFullTerms}
+          className="block w-full text-center text-xs text-blue-400 hover:text-blue-300 underline mb-6"
+        >
+          Read Full Terms of Service
+        </button>
 
         <button 
           onClick={onAccept}

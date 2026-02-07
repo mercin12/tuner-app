@@ -4,10 +4,11 @@ import { PhaseRing } from './components/visualizers/PhaseRing';
 import { HelpModal } from './components/visualizers/HelpModal';
 import { SweepExplanation } from './components/visualizers/SweepExplanation';
 import { TermsOfService } from './components/TermsOfService';
+import { TermsPage } from './components/TermsPage';
 import { savePianoProfile, fetchPianoProfiles } from './services/database';
 import type { PianoProfile } from './services/database';
 
-type UserMode = 'NOVICE' | 'VIRTUOSO' | 'CALIBRATION' | 'HELP' | 'LONG_EXPLANATION' | 'LIBRARY' | 'CAPTURE';
+type UserMode = 'NOVICE' | 'VIRTUOSO' | 'CALIBRATION' | 'HELP' | 'LONG_EXPLANATION' | 'LIBRARY' | 'CAPTURE' | 'TERMS';
 
 function App() {
   const [mode, setMode] = useState<UserMode>('NOVICE');
@@ -101,7 +102,7 @@ function App() {
   }, [mode, isActive, pitchData]);
 
   if (!hasAcceptedTerms) {
-    return <TermsOfService onAccept={handleAcceptTerms} />;
+    return <TermsOfService onAccept={handleAcceptTerms} onViewFullTerms={() => setMode('TERMS')} />;
   }
 
   return (
@@ -149,7 +150,11 @@ function App() {
       {/* Main Content */}
       <main className="flex-1 flex flex-col items-center justify-center p-6 gap-4 w-full max-w-lg mx-auto mt-16">
         
-        {mode === 'LIBRARY' ? (
+        {mode === 'TERMS' ? (
+          <div className="w-full">
+            <TermsPage onBack={() => setMode('NOVICE')} />
+          </div>
+        ) : mode === 'LIBRARY' ? (
           <div className="w-full max-w-md space-y-4">
             <h2 className="text-2xl font-bold text-slate-200 mb-6 flex items-center gap-2">
               Piano Library
@@ -335,7 +340,7 @@ function App() {
       <footer className="p-4 text-center border-t border-slate-900 bg-slate-950 z-30">
         <p className="text-[9px] text-slate-500 leading-relaxed">
           &copy; 2026 <a href="https://romansolutions.app/" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:text-blue-400 transition-colors font-bold">Roman Digital Solutions LLC</a>. All rights reserved.<br/>
-          Resonance Tuner is a product of Roman Digital Solutions.
+          <button onClick={() => setMode('TERMS')} className="text-slate-400 hover:text-white underline decoration-slate-600 underline-offset-2 transition-colors mt-1">Terms of Service</button>
         </p>
       </footer>
     </div>
