@@ -15,6 +15,7 @@ function App() {
   const [capturedData, setCapturedData] = useState<number[]>([]);
   const [activeProfile, setActiveProfile] = useState<PianoProfile | null>(null);
   const [profiles, setProfiles] = useState<PianoProfile[]>([]);
+  const [isMenuVisible, setIsMenuVisible] = useState(true);
   
   const { isActive, pitchData, startAudio, stopAudio } = useAudio(activeProfile);
   
@@ -24,6 +25,16 @@ function App() {
   // Mock settings
   const [targetFreq] = useState(440.00); 
   const [speakingLength] = useState(380); 
+
+  // Auto-hide menu when tuning starts
+  useEffect(() => {
+    if (isActive) {
+      const timer = setTimeout(() => setIsMenuVisible(false), 2000);
+      return () => clearTimeout(timer);
+    } else {
+      setIsMenuVisible(true);
+    }
+  }, [isActive]);
 
   const handleModeChange = async (newMode: UserMode) => {
     setMode(newMode);
@@ -80,7 +91,7 @@ function App() {
   }, [mode, isActive, pitchData]);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans overflow-hidden relative" onClick={() => !isMenuVisible && setIsMenuVisible(true)}>
       <HelpModal 
         isOpen={!!helpInfo} 
         onClose={() => setHelpInfo(null)} 
@@ -89,8 +100,8 @@ function App() {
         onLearnMore={helpInfo?.long ? () => setMode('LONG_EXPLANATION') : undefined}
       />
 
-      {/* Header */}
-      <header className="p-6 flex flex-col gap-4 border-b border-slate-800 bg-slate-900/50 backdrop-blur-md sticky top-0 z-10">
+      {/* Header (Auto-Hides) */}
+      <header className={`absolute top-0 left-0 right-0 p-6 flex flex-col gap-4 border-b border-slate-800 bg-slate-900/90 backdrop-blur-md z-20 transition-transform duration-500 ${isMenuVisible ? 'translate-y-0' : '-translate-y-full'}`}>
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center font-bold shadow-lg shadow-blue-900/20">R</div>
@@ -107,7 +118,7 @@ function App() {
         </div>
         
         <div className="flex bg-slate-800 p-1 rounded-full overflow-x-auto no-scrollbar">
-          {(['HELP', 'SWEEP', 'NOVICE', 'VIRTUOSO'] as UserMode[]).map((m) => (
+          {(['HELP', 'LIBRARY', 'SWEEP', 'NOVICE', 'VIRTUOSO'] as UserMode[]).map((m) => (
             <button
               key={m}
               onClick={() => handleModeChange(m)}
@@ -122,7 +133,7 @@ function App() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col items-center justify-center p-6 gap-8 overflow-y-auto">
+      <main className="flex-1 flex flex-col items-center justify-center p-6 gap-4 w-full max-w-lg mx-auto mt-16">
         
         {mode === 'LIBRARY' ? (
           <div className="w-full max-w-md space-y-4">
@@ -169,28 +180,28 @@ function App() {
             </section>
             <section className="bg-slate-900 p-6 rounded-2xl border border-slate-800">
               <h2 className="text-emerald-400 font-bold mb-3 uppercase text-xs tracking-widest">2. NOVICE MODE</h2>
-              <p className="text-sm text-slate-400 leading-relaxed">Safety-first interface. Includes the <b>Tension Gradient</b> tool to prevent you from breaking strings.</p>
+              <p className="text-sm text-slate-400 leading-relaxed">Safety-first interface. Includes the <b>Tension Gradient</b> tool to prevent you from breaking strings by alerting you when tension is too high.</p>
             </section>
             <section className="bg-slate-900 p-6 rounded-2xl border border-slate-800">
               <h2 className="text-blue-500 font-bold mb-3 uppercase text-xs tracking-widest">3. VIRTUOSO MODE</h2>
               <p className="text-sm text-slate-400 leading-relaxed">Advanced controls. Fine-tune your <b>Interval Weighting</b> preferences using our Entropy Engine.</p>
             </section>
           </div>
-        ) : mode === 'SWEEP' ? (
+        ) : (mode === 'SWEEP' || mode === 'CAPTURE') ? (
           <div className="text-center w-full max-w-md space-y-8">
             <h2 className="text-2xl font-bold text-blue-400 uppercase tracking-widest flex items-center justify-center gap-2">
-              Rapid Pre-Sweep
-              <button onClick={() => showHelp('Pre-Sweep', 'By playing a slow glissando—each note individually in a chromatic scale sequence—Resonance calculates a custom "Stretch Curve" unique to your instrument.', true)} className="w-5 h-5 rounded-full border border-slate-600 text-[10px] text-slate-500 hover:border-blue-400">?</button>
+              {mode === 'SWEEP' ? 'Rapid Pre-Sweep' : 'Capture Reference'}
+              <button onClick={() => showHelp(mode === 'SWEEP' ? 'Pre-Sweep' : 'Reference Capture', mode === 'SWEEP' ? 'By playing a slow glissando...' : 'Record the exact frequencies of a tuned piano to use as a target for future tunings.', true)} className="w-5 h-5 rounded-full border border-slate-600 text-[10px] text-slate-500 hover:border-blue-400">?</button>
             </h2>
             <p className="text-slate-400 text-sm leading-relaxed px-4 italic">"Play each note individually bottom to top like a chromatic scale."</p>
             
             <div className="relative pt-1">
               <div className="flex mb-2 items-center justify-between text-[10px] font-bold uppercase text-slate-500">
-                <span>Calibration Progress</span>
+                <span>{mode === 'SWEEP' ? 'Calibration' : 'Capture'} Progress</span>
                 <span className="font-mono text-blue-400">{Math.round(sweepProgress)}%</span>
               </div>
               <div className="overflow-hidden h-3 mb-4 flex rounded-full bg-slate-800 border border-slate-700 p-0.5">
-                <div style={{ width: `${sweepProgress}%` }} className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-500 rounded-full transition-all duration-300"></div>
+                <div style={{ width: `${sweepProgress}%` }} className={`shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center ${mode === 'CAPTURE' ? 'bg-purple-500' : 'bg-blue-500'} rounded-full transition-all duration-300`}></div>
               </div>
             </div>
 
@@ -208,100 +219,81 @@ function App() {
             </div>
           </div>
         ) : (
-          <>
+          /* Main Tuner View - Compact & Centered */
+          <div className="relative w-full flex flex-col items-center">
+            
             {/* Note Display */}
-            <div className="text-center">
-              <div className="text-8xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-white to-slate-500">
+            <div className="text-center mb-4">
+              <div className="text-7xl font-black tracking-tighter text-white">
                 {pitchData?.note || '--'}
               </div>
-              <div className="text-blue-400 font-mono mt-2 tracking-widest text-lg">
-                {pitchData?.frequency.toFixed(2) || '000.00'} Hz
+              <div className="text-blue-400 font-mono text-sm tracking-widest">
+                {pitchData?.frequency.toFixed(1) || '0.0'} Hz
               </div>
             </div>
 
-            {/* Visualizer Area */}
+            {/* Visualizer Area with Embedded Controls */}
             <div className="relative flex items-center justify-center">
-              <PhaseRing cents={pitchData?.cents || 0} isActive={isActive} />
               
-              <div className="absolute flex flex-col items-center">
-                <span className={`text-2xl font-mono font-bold transition-colors ${
-                  Math.abs(pitchData?.cents || 0) < 1 ? 'text-emerald-400' : 'text-blue-400'
-                }`}>
+              {/* Play/Stop Controls (Top Right) */}
+              <button 
+                onClick={isActive ? stopAudio : startAudio}
+                className={`absolute -top-4 -right-4 w-12 h-12 rounded-full flex items-center justify-center shadow-xl z-30 transition-all ${isActive ? 'bg-rose-600' : 'bg-emerald-600'}`}
+              >
+                {isActive ? <div className="w-3 h-3 bg-white rounded-sm" /> : <div className="w-0 h-0 border-y-[6px] border-y-transparent border-l-[10px] border-l-white ml-0.5" />}
+              </button>
+
+              {/* Smaller Phase Ring */}
+              <div className="transform scale-75">
+                <PhaseRing cents={pitchData?.cents || 0} isActive={isActive} />
+              </div>
+              
+              <div className="absolute flex flex-col items-center pointer-events-none">
+                <span className={`text-xl font-mono font-bold ${Math.abs(pitchData?.cents || 0) < 1 ? 'text-emerald-400' : 'text-blue-400'}`}>
                   {pitchData?.cents ? (pitchData.cents > 0 ? '+' : '') + pitchData.cents.toFixed(1) : '0.0'}
                 </span>
-                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em]">Cents</span>
+                <span className="text-[8px] text-slate-500 font-bold uppercase">Cents</span>
               </div>
             </div>
-          </>
-        )}
 
-        {/* Dynamic Controls */}
-        <div className="w-full max-w-md space-y-4">
-          {mode === 'NOVICE' && (
-            <div className="relative">
-              <button onClick={() => showHelp('Tension Gradient', 'This uses Hooke’s Law to estimate how close your strings are to their breaking point. It accounts for "Elasticity Compensation" to ensure a safe tuning.')} className="absolute right-4 top-4 z-10 w-5 h-5 rounded-full border border-slate-600 text-[10px] text-slate-500 hover:border-blue-400">?</button>
-              <TensionSafety 
-                speakingLength={speakingLength} 
-                frequency={targetFreq} 
-                currentFrequency={pitchData?.frequency || 0}
-              />
-            </div>
-          )}
-          
-          {mode === 'VIRTUOSO' && (
-            <div className="p-6 bg-slate-900 rounded-2xl border border-slate-800 relative shadow-xl">
-              <button onClick={() => showHelp('Interval Weighting', 'Choose how the app calculates "Stretch." Pushing toward Octave Purity makes simple intervals cleaner, while Twelfths Purity prioritizes larger spanning intervals.')} className="absolute right-4 top-4 z-10 w-5 h-5 rounded-full border border-slate-600 text-[10px] text-slate-500 hover:border-blue-400">?</button>
-              <h3 className="text-slate-400 text-xs font-black mb-6 uppercase tracking-[0.2em]">Interval Weighting</h3>
-              <div className="space-y-6">
-                <div>
-                  <div className="flex justify-between text-[10px] font-bold mb-3 text-slate-500">
-                    <span>OCTAVE PURITY</span>
-                    <span className="text-blue-400 font-mono">75%</span>
-                  </div>
-                  <input type="range" className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500" />
+            {/* Dynamic Controls (Below Ring) */}
+            <div className="w-full mt-8">
+              {mode === 'NOVICE' && (
+                <div className="relative">
+                  <button onClick={() => showHelp('Tension Gradient', 'This uses Hooke’s Law to estimate how close your strings are to their breaking point. It accounts for "Elasticity Compensation" to ensure a safe tuning.')} className="absolute right-0 -top-6 z-10 w-5 h-5 rounded-full border border-slate-600 text-[10px] text-slate-500 hover:border-blue-400">?</button>
+                  <TensionSafety speakingLength={speakingLength} frequency={targetFreq} currentFrequency={pitchData?.frequency || 0} />
                 </div>
-                <div>
-                  <div className="flex justify-between text-[10px] font-bold mb-3 text-slate-500">
-                    <span>TWELFTHS PURITY</span>
-                    <span className="text-blue-400 font-mono">40%</span>
-                  </div>
-                  <input type="range" className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500" />
+              )}
+              {mode === 'VIRTUOSO' && (
+                <div className="p-4 bg-slate-900 rounded-xl border border-slate-800 relative shadow-xl">
+                   <button onClick={() => showHelp('Interval Weighting', 'Choose how the app calculates "Stretch." Pushing toward Octave Purity makes simple intervals cleaner, while Twelfths Purity prioritizes larger spanning intervals.')} className="absolute right-2 top-2 z-10 w-5 h-5 rounded-full border border-slate-600 text-[10px] text-slate-500 hover:border-blue-400">?</button>
+                   <h3 className="text-slate-400 text-xs font-black mb-4 uppercase tracking-[0.2em]">Interval Weighting</h3>
+                   <div className="space-y-4">
+                     <div>
+                        <div className="flex justify-between text-[10px] font-bold mb-2 text-slate-500">
+                           <span>OCTAVE PURITY</span>
+                           <span className="text-blue-400 font-mono">75%</span>
+                        </div>
+                        <input type="range" className="w-full h-1 bg-slate-800 rounded-lg accent-blue-500" />
+                     </div>
+                     <div>
+                        <div className="flex justify-between text-[10px] font-bold mb-2 text-slate-500">
+                           <span>TWELFTHS PURITY</span>
+                           <span className="text-blue-400 font-mono">40%</span>
+                        </div>
+                        <input type="range" className="w-full h-1 bg-slate-800 rounded-lg accent-blue-500" />
+                     </div>
+                   </div>
                 </div>
-              </div>
+              )}
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </main>
 
-      {/* Footer / Controls */}
-      {mode !== 'HELP' && (
-        <footer className="p-8 flex flex-col items-center border-t border-slate-900 bg-slate-950">
-          <button
-            onClick={isActive ? stopAudio : startAudio}
-            className={`w-20 h-20 rounded-full flex items-center justify-center transition-all transform active:scale-90 shadow-2xl ${
-              isActive 
-              ? 'bg-rose-600 hover:bg-rose-500 shadow-rose-900/20' 
-              : 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-900/20'
-            }`}
-          >
-            {isActive ? (
-              <div className="w-6 h-6 bg-white rounded-sm" />
-            ) : (
-              <div className="w-0 h-0 border-y-[12px] border-y-transparent border-l-[20px] border-l-white ml-1" />
-            )}
-          </button>
-          <p className="mt-4 text-[10px] text-slate-600 font-black uppercase tracking-[0.4em]">
-            {isActive ? 'Listening' : 'Ready'}
-          </p>
-        </footer>
-      )}
-
-      {/* Copyright Footer */}
-      <footer className="p-4 text-center border-t border-slate-900 bg-slate-950">
-        <p className="text-[9px] text-slate-500 leading-relaxed">
-          &copy; 2026 <a href="https://romansolutions.app/" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:text-blue-400 transition-colors">Roman Digital Solutions LLC</a>. All rights reserved.<br/>
-          Resonance Piano Tuner is a product of Roman Digital Solutions.
-        </p>
+      {/* Simplified Footer */}
+      <footer className="p-2 text-center bg-slate-950 text-[8px] text-slate-600">
+        &copy; 2026 Roman Digital Solutions LLC
       </footer>
     </div>
   );

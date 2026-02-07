@@ -46,6 +46,7 @@ function autoCorrelate(buffer: Float32Array, sampleRate: number) {
   
   // Stricter clarity: < 0.08 requires a clearer signal
   // Range: > 26.5Hz to allow A0 (27.5Hz) but reject 25Hz noise
+  // Weighted preference for higher frequencies to avoid sub-harmonic drop
   if (averageValue < 0.08 && frequency > 26.5 && frequency < 4500) {
     return {
       frequency,
