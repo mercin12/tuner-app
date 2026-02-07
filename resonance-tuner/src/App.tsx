@@ -83,7 +83,7 @@ function App() {
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center font-bold shadow-lg shadow-blue-900/20">R</div>
-            <h1 className="text-xl font-bold tracking-tight">RESONANCE</h1>
+            <h1 className="text-xl font-bold tracking-tight uppercase">Resonance Piano Tuner</h1>
           </div>
           <button 
             onClick={() => handleModeChange('HELP')}
@@ -247,6 +247,14 @@ function App() {
           </p>
         </footer>
       )}
+
+      {/* Copyright Footer */}
+      <footer className="p-4 text-center border-t border-slate-900 bg-slate-950">
+        <p className="text-[9px] text-slate-500 leading-relaxed">
+          &copy; 2026 <a href="https://romansolutions.app/" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:text-blue-400 transition-colors">Roman Digital Solutions LLC</a>. All rights reserved.<br/>
+          Resonance Piano Tuner is a product of Roman Digital Solutions.
+        </p>
+      </footer>
     </div>
   );
 }
