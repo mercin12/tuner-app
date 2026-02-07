@@ -257,9 +257,3 @@ function App() {
 }
 
 export default App;
-      </footer>
-    </div>
-  );
-}
-
-export default App;
