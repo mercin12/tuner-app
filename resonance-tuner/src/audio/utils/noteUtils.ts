@@ -4,7 +4,7 @@ const NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
 export function getNoteFromFrequency(frequency: number, activeProfile?: PianoProfile | null) {
   // Filter out frequencies outside piano range (~27Hz to ~4200Hz)
-  if (frequency < 25 || frequency > 4500) return null;
+  if (frequency < 27.0 || frequency > 4500) return null;
 
   // 1. Determine the Note Name (Standard Math is always used for Naming)
   const n = 12 * Math.log2(frequency / 440) + 69;

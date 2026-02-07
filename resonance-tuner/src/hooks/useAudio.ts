@@ -55,7 +55,8 @@ export const useAudio = (activeProfile?: PianoProfile | null) => {
         for (let i = 0; i < buffer.length; i++) sum += buffer[i] * buffer[i];
         const rms = Math.sqrt(sum / buffer.length);
         
-        if (rms > 0.005) { 
+        // Increased threshold to 0.01 to ignore background hum/fan noise
+        if (rms > 0.01) { 
           // Use Transferable Objects (pass buffer as second arg)
           // This prevents the main thread from lagging on data copy
           workerRef.current?.postMessage({ 
