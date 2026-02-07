@@ -1,4 +1,6 @@
 // Pitch detection worker for heavy lifting
+let lastFrequency = 0;
+
 self.onmessage = (e: MessageEvent) => {
   const { buffer, sampleRate } = e.data;
   
@@ -11,11 +13,15 @@ self.onmessage = (e: MessageEvent) => {
 function autoCorrelate(buffer: Float32Array, sampleRate: number) {
   const SIZE = buffer.length;
   
-  // 1. RMS Check: Reject if signal is too weak (Silence/Noise floor)
+  // 1. RMS Check: Lowered to 0.002 to match main thread and capture sustain
   let sum = 0;
   for (let i = 0; i < SIZE; i++) sum += buffer[i] * buffer[i];
   const rms = Math.sqrt(sum / SIZE);
-  if (rms < 0.01) return { frequency: 0, timestamp: Date.now() };
+  
+  if (rms < 0.002) {
+    lastFrequency = 0;
+    return { frequency: 0, timestamp: Date.now() };
+  }
 
   // Piano frequency range: ~27Hz to ~4186Hz
   // Max offset (for 27Hz) = sampleRate / 27 
@@ -44,15 +50,21 @@ function autoCorrelate(buffer: Float32Array, sampleRate: number) {
   const averageValue = minDifference / SIZE;
   const frequency = sampleRate / bestOffset;
   
-  // Stricter clarity: < 0.08 requires a clearer signal
-  // Range: > 26.5Hz to allow A0 (27.5Hz) but reject 25Hz noise
-  // Weighted preference for higher frequencies to avoid sub-harmonic drop
-  if (averageValue < 0.08 && frequency > 26.5 && frequency < 4500) {
+  // Dynamic Threshold Logic:
+  // If the new frequency is close to the last one (Sustain), be more lenient.
+  const isSustain = lastFrequency > 0 && Math.abs(frequency - lastFrequency) < 2;
+  const threshold = isSustain ? 0.15 : 0.08; // 0.15 allows for "messier" sustain tails
+
+  if (averageValue < threshold && frequency > 26.5 && frequency < 4500) {
+    lastFrequency = frequency;
     return {
       frequency,
       timestamp: Date.now()
     };
   }
+
+  // Only reset if we truly lost the signal (very high difference)
+  if (averageValue > 0.3) lastFrequency = 0;
 
   return { frequency: 0, timestamp: Date.now() };
 }

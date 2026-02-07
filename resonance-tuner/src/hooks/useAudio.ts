@@ -55,16 +55,17 @@ export const useAudio = (activeProfile?: PianoProfile | null) => {
         for (let i = 0; i < buffer.length; i++) sum += buffer[i] * buffer[i];
         const rms = Math.sqrt(sum / buffer.length);
         
-        // Increased threshold to 0.01 to ignore background hum/fan noise
-        if (rms > 0.01) { 
-          // Use Transferable Objects (pass buffer as second arg)
-          // This prevents the main thread from lagging on data copy
+        // Lower threshold to 0.002 to capture sustain
+        if (rms > 0.002) { 
+          // Use Transferable Objects
           workerRef.current?.postMessage({ 
             buffer, 
             sampleRate: audioContext.sampleRate 
           }, [buffer.buffer]);
         } else {
-          workerRef.current?.postMessage({ frequency: 0 });
+          // Send a valid "silence" buffer or just handle silence in the main thread
+          // Sending nothing prevents the worker from crashing
+          // We handle silence in the UI by checking pitchData.clarity
         }
         
         requestAnimationFrame(poll);
