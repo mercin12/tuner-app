@@ -38,11 +38,11 @@ export const useAudio = () => {
               clarity: 0.95
             });
           }
-        } else {
-          // Rapidly fade out data if silence detected
-          setPitchData(prev => prev ? { ...prev, clarity: prev.clarity * 0.5 } : null);
         }
       };
+
+      // Poll audio data
+      let isRunning = true;
 
       const poll = () => {
         if (!isRunning) return;
@@ -66,6 +66,13 @@ export const useAudio = () => {
         }
         
         requestAnimationFrame(poll);
+      };
+
+      setIsActive(true);
+      poll();
+
+      (window as any)._stopResonance = () => {
+        isRunning = false;
       };
 
       setIsActive(true);
