@@ -109,7 +109,39 @@ function App() {
       {/* Main Content */}
       <main className="flex-1 flex flex-col items-center justify-center p-6 gap-8 overflow-y-auto">
         
-        {mode === 'LONG_EXPLANATION' ? (
+        {mode === 'LIBRARY' ? (
+          <div className="w-full max-w-md space-y-4">
+            <h2 className="text-2xl font-bold text-slate-200 mb-6 flex items-center gap-2">
+              Piano Library
+              <button onClick={() => setMode('CAPTURE')} className="ml-auto text-[10px] bg-blue-600 px-3 py-1 rounded-full hover:bg-blue-500 transition-colors uppercase tracking-wider">+ Capture Ref</button>
+            </h2>
+            {profiles.length === 0 ? (
+              <div className="text-center text-slate-500 py-10 bg-slate-900/50 rounded-2xl border border-slate-800 border-dashed">
+                <p>No saved profiles yet.</p>
+                <p className="text-xs mt-2">Run a Sweep or Capture to save one.</p>
+              </div>
+            ) : (
+              profiles.map((p, i) => (
+                <div key={i} className="bg-slate-900 p-4 rounded-xl border border-slate-800 flex justify-between items-center hover:border-blue-500/50 transition-colors group">
+                  <div>
+                    <h3 className="font-bold text-white group-hover:text-blue-400 transition-colors">{p.name}</h3>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full ${
+                      p.type === 'REFERENCE_TUNING' ? 'bg-purple-500/20 text-purple-300' : 'bg-emerald-500/20 text-emerald-300'
+                    }`}>
+                      {p.type === 'REFERENCE_TUNING' ? 'REF TUNING' : 'PROFILE'}
+                    </span>
+                  </div>
+                  <button 
+                    onClick={() => handleLoadProfile(p)}
+                    className="px-4 py-2 bg-slate-800 hover:bg-blue-600 rounded-lg text-xs font-bold transition-colors"
+                  >
+                    LOAD
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        ) : mode === 'LONG_EXPLANATION' ? (
           <div className="max-w-md w-full">
             <SweepExplanation onBack={() => setMode('SWEEP')} />
           </div>
