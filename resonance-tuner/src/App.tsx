@@ -33,6 +33,26 @@ function App() {
     setHelpInfo({ title, content, long });
   };
 
+  const handleSaveProfile = async () => {
+    const name = prompt("Name this piano profile (e.g. 'Yamaha C3'):");
+    if (name) {
+      console.log("Captured Data Points:", capturedData.length);
+      await savePianoProfile({
+        name,
+        speakingLength,
+      } as any);
+      alert("Profile Saved to Neon!");
+      setMode('VIRTUOSO');
+    }
+  };
+
+  // Capture frequency data during SWEEP
+  useEffect(() => {
+    if (mode === 'SWEEP' && isActive && pitchData && pitchData.frequency > 0) {
+      setCapturedData(prev => [...prev, pitchData.frequency]);
+    }
+  }, [mode, isActive, pitchData]);
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
       <HelpModal 
