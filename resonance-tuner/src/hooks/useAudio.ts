@@ -38,25 +38,31 @@ export const useAudio = () => {
               clarity: 0.95
             });
           }
+        } else {
+          // Rapidly fade out data if silence detected
+          setPitchData(prev => prev ? { ...prev, clarity: prev.clarity * 0.5 } : null);
         }
       };
-
-      // Poll audio data
-      const buffer = new Float32Array(2048);
-      let isRunning = true;
 
       const poll = () => {
         if (!isRunning) return;
         
+        const buffer = new Float32Array(2048);
         processor.getFloatTimeDomainData(buffer);
         
-        // Lower threshold (0.001 instead of 0.01)
         let sum = 0;
         for (let i = 0; i < buffer.length; i++) sum += buffer[i] * buffer[i];
         const rms = Math.sqrt(sum / buffer.length);
         
         if (rms > 0.005) { 
-          workerRef.current?.postMessage({ buffer, sampleRate: audioContext.sampleRate });
+          // Use Transferable Objects (pass buffer as second arg)
+          // This prevents the main thread from lagging on data copy
+          workerRef.current?.postMessage({ 
+            buffer, 
+            sampleRate: audioContext.sampleRate 
+          }, [buffer.buffer]);
+        } else {
+          workerRef.current?.postMessage({ frequency: 0 });
         }
         
         requestAnimationFrame(poll);
