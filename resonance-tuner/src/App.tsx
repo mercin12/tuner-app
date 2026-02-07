@@ -23,10 +23,6 @@ function App() {
   // Modal State
   const [helpInfo, setHelpInfo] = useState<{title: string, content: string, long?: boolean} | null>(null);
 
-  // Mock settings (unused now but kept for compatibility)
-  const [targetFreq] = useState(440.00); 
-  const [speakingLength] = useState(380); 
-
   // Check for terms acceptance on load
   useEffect(() => {
     const accepted = localStorage.getItem('resonance_terms_accepted');
