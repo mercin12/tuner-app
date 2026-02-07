@@ -1,8 +1,9 @@
 import { useState, useRef, useCallback } from 'react';
 import type { PitchResult } from '../types/audio';
 import { getNoteFromFrequency } from '../audio/utils/noteUtils';
+import type { PianoProfile } from '../services/database';
 
-export const useAudio = () => {
+export const useAudio = (activeProfile?: PianoProfile | null) => {
   const [isActive, setIsActive] = useState(false);
   const [pitchData, setPitchData] = useState<PitchResult | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -29,7 +30,7 @@ export const useAudio = () => {
       workerRef.current.onmessage = (e) => {
         const freq = e.data.frequency;
         if (freq > 0) {
-          const result = getNoteFromFrequency(freq);
+          const result = getNoteFromFrequency(freq, activeProfile);
           if (result) {
             setPitchData({
               frequency: freq,

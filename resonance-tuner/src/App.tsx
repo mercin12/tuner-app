@@ -33,22 +33,25 @@ function App() {
     setHelpInfo({ title, content, long });
   };
 
-  const handleSaveProfile = async () => {
-    const name = prompt("Name this piano profile (e.g. 'Yamaha C3'):");
+  const handleSaveProfile = async (type: 'INHARMONICITY' | 'REFERENCE_TUNING') => {
+    const name = prompt(type === 'INHARMONICITY' ? "Name this Piano Profile (e.g. 'Yamaha C3'):" : "Name this Reference Tuning (e.g. 'Concert Pitch 2024'):");
     if (name) {
-      console.log("Captured Data Points:", capturedData.length);
-      await savePianoProfile({
+      const newProfile: PianoProfile = {
         name,
+        type,
         speakingLength,
-      } as any);
-      alert("Profile Saved to Neon!");
+        data: capturedData
+      };
+      await savePianoProfile(newProfile);
+      alert("Saved to Library!");
+      setActiveProfile(newProfile);
       setMode('VIRTUOSO');
     }
   };
 
-  // Capture frequency data during SWEEP
+  // Capture frequency data during SWEEP/CAPTURE
   useEffect(() => {
-    if (mode === 'SWEEP' && isActive && pitchData && pitchData.frequency > 0) {
+    if ((mode === 'SWEEP' || mode === 'CAPTURE') && isActive && pitchData && pitchData.frequency > 0) {
       setCapturedData(prev => [...prev, pitchData.frequency]);
     }
   }, [mode, isActive, pitchData]);
