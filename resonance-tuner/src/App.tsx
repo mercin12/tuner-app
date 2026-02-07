@@ -25,11 +25,15 @@ function App() {
   const [targetFreq] = useState(440.00); 
   const [speakingLength] = useState(380); 
 
-  const handleModeChange = (newMode: UserMode) => {
+  const handleModeChange = async (newMode: UserMode) => {
     setMode(newMode);
-    if (newMode === 'SWEEP') {
+    if (newMode === 'SWEEP' || newMode === 'CAPTURE') {
       setSweepProgress(0);
       setCapturedData([]);
+    }
+    if (newMode === 'LIBRARY') {
+      const data = await fetchPianoProfiles();
+      setProfiles(data);
     }
   };
 
