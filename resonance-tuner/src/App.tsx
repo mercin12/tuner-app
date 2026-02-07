@@ -24,7 +24,7 @@ function App() {
 
   // Mock settings
   const [targetFreq] = useState(440.00); 
-  const [speakingLength] = useState(380); 
+  const [speakingLength, setSpeakingLength] = useState(380); 
 
   // Auto-hide menu when tuning starts
   useEffect(() => {
@@ -287,8 +287,25 @@ function App() {
             {/* Dynamic Controls (Below Ring) */}
             <div className="w-full mt-10">
               {mode === 'NOVICE' && (
-                <div className="relative">
-                  <button onClick={() => showHelp('Tension Gradient', 'This uses Hooke’s Law to estimate how close your strings are to their breaking point. It accounts for "Elasticity Compensation" to ensure a safe tuning.')} className="absolute right-0 -top-8 z-10 w-6 h-6 rounded-full border border-slate-700 text-[10px] text-slate-500 hover:border-blue-400 transition-colors">?</button>
+                <div className="relative bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-xl">
+                  <button onClick={() => showHelp('Tension Gradient', 'This calculates the Tensile Stress (MPa) on the string using the Physics Formula: σ = 4 * ρ * L² * f². It warns you if you approach the Yield Strength of steel (~1100 MPa). Adjust the slider to match the string length!')} className="absolute right-4 top-4 z-10 w-6 h-6 rounded-full border border-slate-700 text-[10px] text-slate-500 hover:border-blue-400 transition-colors">?</button>
+                  
+                  <div className="mb-6">
+                    <div className="flex justify-between items-center mb-3">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">String Length</label>
+                      <span className="text-xs font-mono text-blue-400 font-bold">{speakingLength} mm</span>
+                    </div>
+                    <input 
+                      type="range" 
+                      min="50" 
+                      max="1500" 
+                      step="10" 
+                      value={speakingLength}
+                      onChange={(e) => setSpeakingLength(parseInt(e.target.value))}
+                      className="w-full h-1.5 bg-slate-800 rounded-full accent-blue-500 appearance-none cursor-pointer hover:bg-slate-700 transition-colors"
+                    />
+                  </div>
+
                   <TensionSafety speakingLength={speakingLength} frequency={targetFreq} currentFrequency={pitchData?.frequency || 0} />
                 </div>
               )}
