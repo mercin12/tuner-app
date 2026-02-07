@@ -1,17 +1,42 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAudio } from './hooks/useAudio';
 import { PhaseRing } from './components/visualizers/PhaseRing';
 import { TensionSafety } from './components/novice/TensionSafety';
 
-type UserMode = 'NOVICE' | 'VIRTUOSO';
+type UserMode = 'NOVICE' | 'VIRTUOSO' | 'SWEEP';
 
 function App() {
   const [mode, setMode] = useState<UserMode>('NOVICE');
+  const [sweepProgress, setSweepProgress] = useState(0);
   const { isActive, pitchData, startAudio, stopAudio } = useAudio();
   
   // Mock settings
   const [targetFreq] = useState(440.00); // A4
   const [speakingLength] = useState(380); // mm
+
+  const handleModeChange = (newMode: UserMode) => {
+    setMode(newMode);
+    if (newMode === 'SWEEP') {
+      setSweepProgress(0);
+    }
+  };
+
+  // Start sweep timer if in sweep mode and active
+  useEffect(() => {
+    let interval: any;
+    if (mode === 'SWEEP' && isActive && sweepProgress < 100) {
+      interval = setInterval(() => {
+        setSweepProgress(prev => {
+          if (prev >= 100) {
+            clearInterval(interval);
+            return 100;
+          }
+          return prev + (100 / (30 * 10)); // 30 seconds total
+        });
+      }, 100);
+    }
+    return () => clearInterval(interval);
+  }, [mode, isActive, sweepProgress]);
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
@@ -23,11 +48,11 @@ function App() {
         </div>
         
         <div className="flex bg-slate-800 p-1 rounded-full">
-          {(['NOVICE', 'VIRTUOSO'] as UserMode[]).map((m) => (
+          {(['SWEEP', 'NOVICE', 'VIRTUOSO'] as UserMode[]).map((m) => (
             <button
               key={m}
-              onClick={() => setMode(m)}
-              className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${
+              onClick={() => handleModeChange(m)}
+              className={`px-4 py-1.5 rounded-full text-[10px] font-bold transition-all ${
                 mode === m ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-200'
               }`}
             >
@@ -40,40 +65,73 @@ function App() {
       {/* Main Content */}
       <main className="flex-1 flex flex-col items-center justify-center p-6 gap-8">
         
-        {/* Note Display */}
-        <div className="text-center">
-          <div className="text-8xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-white to-slate-500">
-            {pitchData?.note || '--'}
-          </div>
-          <div className="text-blue-400 font-mono mt-2 tracking-widest">
-            {pitchData?.frequency.toFixed(2) || '000.00'} Hz
-          </div>
-        </div>
+        {mode === 'SWEEP' ? (
+          <div className="text-center w-full max-w-md space-y-8">
+            <h2 className="text-2xl font-bold text-blue-400 uppercase tracking-widest">Rapid Pre-Sweep</h2>
+            <p className="text-slate-400 text-sm">Play a slow chromatic glissando across all keys for 30 seconds to calibrate.</p>
+            
+            <div className="relative pt-1">
+              <div className="flex mb-2 items-center justify-between">
+                <div>
+                  <span className="text-xs font-semibold inline-block py-1 px-2 uppercase rounded-full text-blue-600 bg-blue-200">
+                    Calibration Progress
+                  </span>
+                </div>
+                <div className="text-right">
+                  <span className="text-xs font-semibold inline-block text-blue-600">
+                    {Math.round(sweepProgress)}%
+                  </span>
+                </div>
+              </div>
+              <div className="overflow-hidden h-2 mb-4 text-xs flex rounded bg-slate-800">
+                <div style={{ width: `${sweepProgress}%` }} className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-500 transition-all duration-300"></div>
+              </div>
+            </div>
 
-        {/* Visualizer Area */}
-        <div className="relative flex items-center justify-center">
-          <PhaseRing cents={pitchData?.cents || 0} isActive={isActive} />
-          
-          {/* Cent Indicator Overlay */}
-          <div className="absolute flex flex-col items-center">
-            <span className={`text-2xl font-mono font-bold transition-colors ${
-              Math.abs(pitchData?.cents || 0) < 1 ? 'text-emerald-400' : 'text-blue-400'
-            }`}>
-              {pitchData?.cents ? (pitchData.cents > 0 ? '+' : '') + pitchData.cents.toFixed(1) : '0.0'}
-            </span>
-            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em]">Cents</span>
+            <div className="text-4xl font-mono text-white">
+              {pitchData?.note || '--'}
+            </div>
           </div>
-        </div>
+        ) : (
+          <>
+            {/* Note Display */}
+            <div className="text-center">
+              <div className="text-8xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-white to-slate-500">
+                {pitchData?.note || '--'}
+              </div>
+              <div className="text-blue-400 font-mono mt-2 tracking-widest">
+                {pitchData?.frequency.toFixed(2) || '000.00'} Hz
+              </div>
+            </div>
+
+            {/* Visualizer Area */}
+            <div className="relative flex items-center justify-center">
+              <PhaseRing cents={pitchData?.cents || 0} isActive={isActive} />
+              
+              {/* Cent Indicator Overlay */}
+              <div className="absolute flex flex-col items-center">
+                <span className={`text-2xl font-mono font-bold transition-colors ${
+                  Math.abs(pitchData?.cents || 0) < 1 ? 'text-emerald-400' : 'text-blue-400'
+                }`}>
+                  {pitchData?.cents ? (pitchData.cents > 0 ? '+' : '') + pitchData.cents.toFixed(1) : '0.0'}
+                </span>
+                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em]">Cents</span>
+              </div>
+            </div>
+          </>
+        )}
 
         {/* Dynamic Controls based on Persona */}
         <div className="w-full max-w-md space-y-4">
-          {mode === 'NOVICE' ? (
+          {mode === 'NOVICE' && (
             <TensionSafety 
               speakingLength={speakingLength} 
               frequency={targetFreq} 
               currentFrequency={pitchData?.frequency || 0}
             />
-          ) : (
+          )}
+          
+          {mode === 'VIRTUOSO' && (
             <div className="p-4 bg-slate-900 rounded-xl border border-slate-800">
               <h3 className="text-slate-400 text-sm font-semibold mb-4 uppercase tracking-wider">Interval Weighting</h3>
               <div className="space-y-4">

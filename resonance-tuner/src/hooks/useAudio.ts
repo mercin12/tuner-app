@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
 import type { PitchResult } from '../types/audio';
+import { getNoteFromFrequency } from '../audio/utils/noteUtils';
 
 export const useAudio = () => {
   const [isActive, setIsActive] = useState(false);
@@ -24,15 +25,17 @@ export const useAudio = () => {
       workerRef.current = new Worker(new URL('../audio/workers/pitchWorker.ts', import.meta.url), { type: 'module' });
       
       workerRef.current.onmessage = (e) => {
-        // Here we'll eventually calculate cents deviation from target note
         const freq = e.data.frequency;
         if (freq > 0) {
-          setPitchData({
-            frequency: freq,
-            note: 'A4', // Mock note detection for now
-            cents: (Math.random() - 0.5) * 10, // Mock jitter for visualizer
-            clarity: 0.95
-          });
+          const result = getNoteFromFrequency(freq);
+          if (result) {
+            setPitchData({
+              frequency: freq,
+              note: result.note,
+              cents: result.cents,
+              clarity: 0.95
+            });
+          }
         }
       };
 
