@@ -1,4 +1,4 @@
-import { PianoProfile } from '../../services/database';
+import type { PianoProfile } from '../../services/database';
 
 const NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 

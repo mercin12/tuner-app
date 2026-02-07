@@ -4,15 +4,19 @@ import { PhaseRing } from './components/visualizers/PhaseRing';
 import { TensionSafety } from './components/novice/TensionSafety';
 import { HelpModal } from './components/visualizers/HelpModal';
 import { SweepExplanation } from './components/visualizers/SweepExplanation';
-import { savePianoProfile } from './services/database';
+import { savePianoProfile, fetchPianoProfiles } from './services/database';
+import type { PianoProfile } from './services/database';
 
-type UserMode = 'NOVICE' | 'VIRTUOSO' | 'SWEEP' | 'HELP' | 'LONG_EXPLANATION';
+type UserMode = 'NOVICE' | 'VIRTUOSO' | 'SWEEP' | 'HELP' | 'LONG_EXPLANATION' | 'LIBRARY' | 'CAPTURE';
 
 function App() {
   const [mode, setMode] = useState<UserMode>('NOVICE');
   const [sweepProgress, setSweepProgress] = useState(0);
   const [capturedData, setCapturedData] = useState<number[]>([]);
-  const { isActive, pitchData, startAudio, stopAudio } = useAudio();
+  const [activeProfile, setActiveProfile] = useState<PianoProfile | null>(null);
+  const [profiles, setProfiles] = useState<PianoProfile[]>([]);
+  
+  const { isActive, pitchData, startAudio, stopAudio } = useAudio(activeProfile);
   
   // Modal State
   const [helpInfo, setHelpInfo] = useState<{title: string, content: string, long?: boolean} | null>(null);
@@ -141,10 +145,10 @@ function App() {
 
             {sweepProgress >= 100 && (
               <button 
-                onClick={handleSaveProfile}
-                className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-xl shadow-lg shadow-emerald-900/20 transition-all transform active:scale-95"
+                onClick={() => handleSaveProfile(mode === 'SWEEP' ? 'INHARMONICITY' : 'REFERENCE_TUNING')}
+                className={`w-full py-4 ${mode === 'CAPTURE' ? 'bg-purple-600 hover:bg-purple-500 shadow-purple-900/20' : 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-900/20'} text-white font-black rounded-xl shadow-lg transition-all transform active:scale-95`}
               >
-                SAVE PIANO PROFILE
+                {mode === 'SWEEP' ? 'SAVE PIANO PROFILE' : 'SAVE REFERENCE TUNING'}
               </button>
             )}
 
