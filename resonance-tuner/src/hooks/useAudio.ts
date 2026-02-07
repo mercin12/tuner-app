@@ -38,22 +38,40 @@ export const useAudio = () => {
 
       // Poll audio data
       const buffer = new Float32Array(2048);
+      let isRunning = true;
+
       const poll = () => {
-        if (!isActive) return;
+        if (!isRunning) return;
+        
         processor.getFloatTimeDomainData(buffer);
-        workerRef.current?.postMessage({ buffer, sampleRate: audioContext.sampleRate });
+        
+        // Simple volume check (RMS) to ensure there is sound
+        let sum = 0;
+        for (let i = 0; i < buffer.length; i++) sum += buffer[i] * buffer[i];
+        const rms = Math.sqrt(sum / buffer.length);
+        
+        if (rms > 0.01) { // Only send to worker if there is actual sound
+          workerRef.current?.postMessage({ buffer, sampleRate: audioContext.sampleRate });
+        }
+        
         requestAnimationFrame(poll);
       };
 
       setIsActive(true);
       poll();
+
+      // Store stop function
+      (window as any)._stopResonance = () => {
+        isRunning = false;
+      };
     } catch (err) {
       console.error("Microphone access denied", err);
     }
-  }, [isActive]);
+  }, []); // Removed isActive dependency to prevent loop recreation
 
   const stopAudio = useCallback(() => {
     setIsActive(false);
+    if ((window as any)._stopResonance) (window as any)._stopResonance();
     streamRef.current?.getTracks().forEach(track => track.stop());
     audioContextRef.current?.close();
     workerRef.current?.terminate();

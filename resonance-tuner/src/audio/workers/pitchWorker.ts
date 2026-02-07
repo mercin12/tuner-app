@@ -27,8 +27,15 @@ function autoCorrelate(buffer: Float32Array, sampleRate: number) {
   }
 
   const frequency = sampleRate / bestOffset;
-  return {
-    frequency,
-    timestamp: Date.now()
-  };
+  
+  // Only return frequency if correlation is strong enough
+  // and frequency is within human hearing/piano range
+  if (bestCorrelation > 0.01 && frequency > 20 && frequency < 5000) {
+    return {
+      frequency,
+      timestamp: Date.now()
+    };
+  }
+
+  return { frequency: 0, timestamp: Date.now() };
 }
