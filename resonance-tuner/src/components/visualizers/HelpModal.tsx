@@ -5,9 +5,10 @@ interface HelpModalProps {
   onClose: () => void;
   title: string;
   content: string;
+  onLearnMore?: () => void;
 }
 
-export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose, title, content }) => {
+export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose, title, content, onLearnMore }) => {
   if (!isOpen) return null;
 
   return (
@@ -23,6 +24,19 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose, title, co
         <p className="text-slate-300 text-sm leading-relaxed">
           {content}
         </p>
+        
+        {onLearnMore && (
+          <button 
+            onClick={() => {
+              onClose();
+              onLearnMore();
+            }}
+            className="w-full mt-4 text-xs font-bold text-blue-500 hover:text-blue-400 uppercase tracking-widest text-center"
+          >
+            Learn More About This &rarr;
+          </button>
+        )}
+
         <button 
           onClick={onClose}
           className="w-full mt-6 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-xs font-bold text-slate-300 transition-colors"

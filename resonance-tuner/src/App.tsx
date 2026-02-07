@@ -3,9 +3,10 @@ import { useAudio } from './hooks/useAudio';
 import { PhaseRing } from './components/visualizers/PhaseRing';
 import { TensionSafety } from './components/novice/TensionSafety';
 import { HelpModal } from './components/visualizers/HelpModal';
+import { SweepExplanation } from './components/visualizers/SweepExplanation';
 import { savePianoProfile } from './services/database';
 
-type UserMode = 'NOVICE' | 'VIRTUOSO' | 'SWEEP' | 'HELP';
+type UserMode = 'NOVICE' | 'VIRTUOSO' | 'SWEEP' | 'HELP' | 'LONG_EXPLANATION';
 
 function App() {
   const [mode, setMode] = useState<UserMode>('NOVICE');
@@ -14,7 +15,7 @@ function App() {
   const { isActive, pitchData, startAudio, stopAudio } = useAudio();
   
   // Modal State
-  const [helpInfo, setHelpInfo] = useState<{title: string, content: string} | null>(null);
+  const [helpInfo, setHelpInfo] = useState<{title: string, content: string, long?: boolean} | null>(null);
 
   // Mock settings
   const [targetFreq] = useState(440.00); 
@@ -28,45 +29,8 @@ function App() {
     }
   };
 
-  const handleSaveProfile = async () => {
-    const name = prompt("Name this piano profile (e.g. 'Yamaha C3'):");
-    if (name) {
-      console.log("Captured Data Points:", capturedData.length);
-      await savePianoProfile({
-        name,
-        speakingLength,
-      } as any);
-      alert("Profile Saved to Neon!");
-      setMode('VIRTUOSO');
-    }
-  };
-
-  // Capture sweep data
-  useEffect(() => {
-    if (mode === 'SWEEP' && isActive && pitchData && pitchData.frequency > 0) {
-      setCapturedData(prev => [...prev, pitchData.frequency]);
-    }
-  }, [mode, isActive, pitchData]);
-
-  // Start sweep timer
-  useEffect(() => {
-    let interval: any;
-    if (mode === 'SWEEP' && isActive && sweepProgress < 100) {
-      interval = setInterval(() => {
-        setSweepProgress(prev => {
-          if (prev >= 100) {
-            clearInterval(interval);
-            return 100;
-          }
-          return prev + (100 / (30 * 10)); 
-        });
-      }, 100);
-    }
-    return () => clearInterval(interval);
-  }, [mode, isActive, sweepProgress]);
-
-  const showHelp = (title: string, content: string) => {
-    setHelpInfo({ title, content });
+  const showHelp = (title: string, content: string, long = false) => {
+    setHelpInfo({ title, content, long });
   };
 
   return (
@@ -76,6 +40,7 @@ function App() {
         onClose={() => setHelpInfo(null)} 
         title={helpInfo?.title || ''} 
         content={helpInfo?.content || ''} 
+        onLearnMore={helpInfo?.long ? () => setMode('LONG_EXPLANATION') : undefined}
       />
 
       {/* Header */}
@@ -111,35 +76,40 @@ function App() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col items-center justify-center p-6 gap-8">
+      <main className="flex-1 flex flex-col items-center justify-center p-6 gap-8 overflow-y-auto">
         
-        {mode === 'HELP' ? (
-          <div className="max-w-md w-full space-y-6 overflow-y-auto max-h-[60vh] pr-2">
+        {mode === 'LONG_EXPLANATION' ? (
+          <div className="max-w-md w-full">
+            <SweepExplanation onBack={() => setMode('SWEEP')} />
+          </div>
+        ) : mode === 'HELP' ? (
+          <div className="max-w-md w-full space-y-6">
             <section className="bg-slate-900 p-6 rounded-2xl border border-slate-800">
-              <h2 className="text-blue-400 font-bold mb-3">1. PRE-SWEEP (Mandatory)</h2>
-              <p className="text-sm text-slate-400">Pianos aren't perfect. Strings are stiff, making high notes naturally sharp. Start with a 30-second SWEEP. Play every note slowly from bottom to top. This creates your <b>Piano Profile</b>.</p>
+              <h2 className="text-blue-400 font-bold mb-3 uppercase text-xs tracking-widest">1. PRE-SWEEP (Mandatory)</h2>
+              <p className="text-sm text-slate-400 leading-relaxed italic">"Play every note by itself in sequence like a chromatic scale."</p>
+              <p className="text-sm text-slate-400 mt-2 leading-relaxed">Start with a 30-second SWEEP from bottom to top. This maps your strings' stiffness to create a custom <b>Piano Profile</b>.</p>
             </section>
             <section className="bg-slate-900 p-6 rounded-2xl border border-slate-800">
-              <h2 className="text-emerald-400 font-bold mb-3">2. NOVICE MODE</h2>
-              <p className="text-sm text-slate-400">Use this if you are a DIYer. It includes the <b>Tension Gradient</b> tool to prevent you from breaking strings by alerting you when tension is too high.</p>
+              <h2 className="text-emerald-400 font-bold mb-3 uppercase text-xs tracking-widest">2. NOVICE MODE</h2>
+              <p className="text-sm text-slate-400 leading-relaxed">Safety-first interface. Includes the <b>Tension Gradient</b> tool to prevent you from breaking strings.</p>
             </section>
             <section className="bg-slate-900 p-6 rounded-2xl border border-slate-800">
-              <h2 className="text-blue-500 font-bold mb-3">3. VIRTUOSO MODE</h2>
-              <p className="text-sm text-slate-400">For pros. Adjust <b>Interval Weighting</b> to choose between pure octaves or pure twelfths. Resonance uses <b>Spectral Entropy</b> to calculate the perfect stretch curve.</p>
+              <h2 className="text-blue-500 font-bold mb-3 uppercase text-xs tracking-widest">3. VIRTUOSO MODE</h2>
+              <p className="text-sm text-slate-400 leading-relaxed">Advanced controls. Fine-tune your <b>Interval Weighting</b> preferences using our Entropy Engine.</p>
             </section>
           </div>
         ) : mode === 'SWEEP' ? (
           <div className="text-center w-full max-w-md space-y-8">
             <h2 className="text-2xl font-bold text-blue-400 uppercase tracking-widest flex items-center justify-center gap-2">
               Rapid Pre-Sweep
-              <button onClick={() => showHelp('Pre-Sweep', 'By playing a 30-second chromatic glissando, Resonance analyzes the specific thickness and stiffness of your piano strings to calculate a custom "Stretch Curve" unique to your instrument.')} className="w-5 h-5 rounded-full border border-slate-600 text-[10px] text-slate-500 hover:border-blue-400">?</button>
+              <button onClick={() => showHelp('Pre-Sweep', 'By playing a slow glissando—each note individually in a chromatic scale sequence—Resonance calculates a custom "Stretch Curve" unique to your instrument.', true)} className="w-5 h-5 rounded-full border border-slate-600 text-[10px] text-slate-500 hover:border-blue-400">?</button>
             </h2>
-            <p className="text-slate-400 text-sm leading-relaxed px-4">Press PLAY and play a slow glissando across all keys for 30 seconds to calibrate.</p>
+            <p className="text-slate-400 text-sm leading-relaxed px-4 italic">"Play each note individually bottom to top like a chromatic scale."</p>
             
             <div className="relative pt-1">
-              <div className="flex mb-2 items-center justify-between">
-                <span className="text-[10px] font-bold uppercase text-slate-500">Calibration Progress</span>
-                <span className="text-xs font-mono text-blue-400">{Math.round(sweepProgress)}%</span>
+              <div className="flex mb-2 items-center justify-between text-[10px] font-bold uppercase text-slate-500">
+                <span>Calibration Progress</span>
+                <span className="font-mono text-blue-400">{Math.round(sweepProgress)}%</span>
               </div>
               <div className="overflow-hidden h-3 mb-4 flex rounded-full bg-slate-800 border border-slate-700 p-0.5">
                 <div style={{ width: `${sweepProgress}%` }} className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-500 rounded-full transition-all duration-300"></div>
