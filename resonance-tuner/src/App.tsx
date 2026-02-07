@@ -101,12 +101,17 @@ function App() {
     }
   }, [mode, isActive, pitchData]);
 
-  if (!hasAcceptedTerms) {
+  if (!hasAcceptedTerms && mode !== 'TERMS') {
     return <TermsOfService onAccept={handleAcceptTerms} onViewFullTerms={() => setMode('TERMS')} />;
   }
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans overflow-hidden relative" onClick={() => !isMenuVisible && setIsMenuVisible(true)}>
+      {mode === 'TERMS' && !hasAcceptedTerms ? (
+        <div className="absolute inset-0 z-[60] bg-slate-950 overflow-y-auto">
+           <TermsPage onBack={() => setMode('NOVICE')} />
+        </div>
+      ) : null}
       <HelpModal 
         isOpen={!!helpInfo} 
         onClose={() => setHelpInfo(null)} 
