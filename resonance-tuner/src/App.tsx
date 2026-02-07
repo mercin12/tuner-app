@@ -2,11 +2,6 @@ import { useState, useEffect } from 'react';
 import { useAudio } from './hooks/useAudio';
 import { PhaseRing } from './components/visualizers/PhaseRing';
 import { TensionSafety } from './components/novice/TensionSafety';
-
-import { useState, useEffect, useCallback } from 'react';
-import { useAudio } from './hooks/useAudio';
-import { PhaseRing } from './components/visualizers/PhaseRing';
-import { TensionSafety } from './components/novice/TensionSafety';
 import { HelpModal } from './components/visualizers/HelpModal';
 import { savePianoProfile } from './services/database';
 
@@ -36,10 +31,10 @@ function App() {
   const handleSaveProfile = async () => {
     const name = prompt("Name this piano profile (e.g. 'Yamaha C3'):");
     if (name) {
+      console.log("Captured Data Points:", capturedData.length);
       await savePianoProfile({
         name,
         speakingLength,
-        // capturedData represents the unique string stiffness profile
       } as any);
       alert("Profile Saved to Neon!");
       setMode('VIRTUOSO');
