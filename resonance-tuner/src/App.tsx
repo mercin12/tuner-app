@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useAudio } from './hooks/useAudio';
 import { PhaseRing } from './components/visualizers/PhaseRing';
-import { TensionSafety } from './components/novice/TensionSafety';
 import { HelpModal } from './components/visualizers/HelpModal';
 import { SweepExplanation } from './components/visualizers/SweepExplanation';
+import { TermsOfService } from './components/TermsOfService';
 import { savePianoProfile, fetchPianoProfiles } from './services/database';
 import type { PianoProfile } from './services/database';
 
@@ -16,15 +16,27 @@ function App() {
   const [activeProfile, setActiveProfile] = useState<PianoProfile | null>(null);
   const [profiles, setProfiles] = useState<PianoProfile[]>([]);
   const [isMenuVisible, setIsMenuVisible] = useState(true);
+  const [hasAcceptedTerms, setHasAcceptedTerms] = useState(false);
   
   const { isActive, pitchData, startAudio, stopAudio } = useAudio(activeProfile);
   
   // Modal State
   const [helpInfo, setHelpInfo] = useState<{title: string, content: string, long?: boolean} | null>(null);
 
-  // Mock settings
+  // Mock settings (unused now but kept for compatibility)
   const [targetFreq] = useState(440.00); 
-  const [speakingLength, setSpeakingLength] = useState(380); 
+  const [speakingLength] = useState(380); 
+
+  // Check for terms acceptance on load
+  useEffect(() => {
+    const accepted = localStorage.getItem('resonance_terms_accepted');
+    if (accepted) setHasAcceptedTerms(true);
+  }, []);
+
+  const handleAcceptTerms = () => {
+    localStorage.setItem('resonance_terms_accepted', 'true');
+    setHasAcceptedTerms(true);
+  };
 
   // Auto-hide menu when tuning starts
   useEffect(() => {
@@ -62,7 +74,7 @@ function App() {
       const newProfile: PianoProfile = {
         name,
         type,
-        speakingLength,
+        speakingLength: 0,
         data: capturedData
       };
       await savePianoProfile(newProfile);
@@ -91,6 +103,10 @@ function App() {
       });
     }
   }, [mode, isActive, pitchData]);
+
+  if (!hasAcceptedTerms) {
+    return <TermsOfService onAccept={handleAcceptTerms} />;
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans overflow-hidden relative" onClick={() => !isMenuVisible && setIsMenuVisible(true)}>
@@ -138,7 +154,7 @@ function App() {
       <main className="flex-1 flex flex-col items-center justify-center p-6 gap-4 w-full max-w-lg mx-auto mt-16">
         
         {mode === 'LIBRARY' ? (
-          <div className="w-full max-w-md space-y-4 h-full">
+          <div className="w-full max-w-md space-y-4">
             <h2 className="text-2xl font-bold text-slate-200 mb-6 flex items-center gap-2">
               Piano Library
               <button onClick={() => handleModeChange('CAPTURE')} className="ml-auto text-[10px] bg-blue-600 px-3 py-1 rounded-full hover:bg-blue-500 transition-colors uppercase tracking-wider">+ Capture Ref</button>
@@ -188,7 +204,7 @@ function App() {
             </section>
             <section className="bg-slate-900 p-6 rounded-2xl border border-slate-800">
               <h2 className="text-emerald-400 font-bold mb-3 uppercase text-xs tracking-widest">3. NOVICE MODE</h2>
-              <p className="text-sm text-slate-400 leading-relaxed">Safety-first interface. Includes the <b>Tension Gradient</b> tool to prevent you from breaking strings.</p>
+              <p className="text-sm text-slate-400 leading-relaxed">Safety-first interface.</p>
             </section>
             <section className="bg-slate-900 p-6 rounded-2xl border border-slate-800">
               <h2 className="text-blue-500 font-bold mb-3 uppercase text-xs tracking-widest">4. VIRTUOSO MODE</h2>
@@ -210,7 +226,7 @@ function App() {
 
             <h2 className="text-2xl font-bold text-blue-400 uppercase tracking-widest flex items-center justify-center gap-2">
               {mode === 'CALIBRATION' ? 'Rapid Calibration' : 'Capture Reference'}
-              <button onClick={() => showHelp(mode === 'CALIBRATION' ? 'Calibration' : 'Reference Capture', mode === 'CALIBRATION' ? 'By playing a slow glissando—each note individually in a chromatic scale sequence—Resonance calculates a custom "Stretch Curve" unique to your instrument.' : 'Record the exact frequencies of a tuned piano to use as a target for future tunings.', true)} className="w-5 h-5 rounded-full border border-slate-600 text-[10px] text-slate-500 hover:border-blue-400 transition-colors">?</button>
+              <button onClick={() => showHelp(mode === 'CALIBRATION' ? 'Calibration' : 'Reference Capture', mode === 'CALIBRATION' ? 'By playing a slow glissando...' : 'Record the exact frequencies of a tuned piano to use as a target for future tunings.', true)} className="w-5 h-5 rounded-full border border-slate-600 text-[10px] text-slate-500 hover:border-blue-400 transition-colors">?</button>
             </h2>
             <p className="text-slate-400 text-sm leading-relaxed px-4 italic">"Play each note individually bottom to top like a chromatic scale."</p>
             
@@ -287,26 +303,8 @@ function App() {
             {/* Dynamic Controls (Below Ring) */}
             <div className="w-full mt-10">
               {mode === 'NOVICE' && (
-                <div className="relative bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-xl">
-                  <button onClick={() => showHelp('Tension Gradient', 'This calculates the Tensile Stress (MPa) on the string using the Physics Formula: σ = 4 * ρ * L² * f². It warns you if you approach the Yield Strength of steel (~1100 MPa). Adjust the slider to match the string length!')} className="absolute right-4 top-4 z-10 w-6 h-6 rounded-full border border-slate-700 text-[10px] text-slate-500 hover:border-blue-400 transition-colors">?</button>
-                  
-                  <div className="mb-6">
-                    <div className="flex justify-between items-center mb-3">
-                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">String Length</label>
-                      <span className="text-xs font-mono text-blue-400 font-bold">{speakingLength} mm</span>
-                    </div>
-                    <input 
-                      type="range" 
-                      min="50" 
-                      max="1500" 
-                      step="10" 
-                      value={speakingLength}
-                      onChange={(e) => setSpeakingLength(parseInt(e.target.value))}
-                      className="w-full h-1.5 bg-slate-800 rounded-full accent-blue-500 appearance-none cursor-pointer hover:bg-slate-700 transition-colors"
-                    />
-                  </div>
-
-                  <TensionSafety speakingLength={speakingLength} frequency={targetFreq} currentFrequency={pitchData?.frequency || 0} />
+                <div className="p-6 bg-slate-900 rounded-2xl border border-slate-800 text-center">
+                  <p className="text-sm text-slate-400">Basic tuning mode. Focus on the green zone!</p>
                 </div>
               )}
               {mode === 'VIRTUOSO' && (
