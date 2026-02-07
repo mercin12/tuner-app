@@ -15,10 +15,12 @@ export const useAudio = () => {
       streamRef.current = stream;
       
       const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      await audioContext.resume(); // Crucial for mobile browsers
       audioContextRef.current = audioContext;
       
       const source = audioContext.createMediaStreamSource(stream);
       const processor = audioContext.createAnalyser();
+      processor.fftSize = 2048;
       source.connect(processor);
 
       // Initialize Worker
@@ -48,12 +50,12 @@ export const useAudio = () => {
         
         processor.getFloatTimeDomainData(buffer);
         
-        // Simple volume check (RMS) to ensure there is sound
+        // Lower threshold (0.001 instead of 0.01)
         let sum = 0;
         for (let i = 0; i < buffer.length; i++) sum += buffer[i] * buffer[i];
         const rms = Math.sqrt(sum / buffer.length);
         
-        if (rms > 0.01) { // Only send to worker if there is actual sound
+        if (rms > 0.005) { 
           workerRef.current?.postMessage({ buffer, sampleRate: audioContext.sampleRate });
         }
         

@@ -9,17 +9,23 @@ self.onmessage = (e: MessageEvent) => {
 };
 
 function autoCorrelate(buffer: Float32Array, sampleRate: number) {
-  // Simplified version for prototype
-  // In production, this will use Spectral Entropy Minimization
-  let bestOffset = -1;
-  let bestCorrelation = 0;
   const SIZE = buffer.length;
   
-  for (let offset = 0; offset < SIZE; offset++) {
+  // Piano frequency range: ~27Hz to ~4186Hz
+  // Max offset (for 27Hz) = sampleRate / 27 
+  // Min offset (for 4186Hz) = sampleRate / 4186
+  const minOffset = Math.floor(sampleRate / 4200);
+  const maxOffset = Math.floor(sampleRate / 25);
+  
+  let bestOffset = -1;
+  let bestCorrelation = 0;
+  
+  for (let offset = minOffset; offset < maxOffset; offset++) {
     let correlation = 0;
     for (let i = 0; i < SIZE - offset; i++) {
       correlation += buffer[i] * buffer[i + offset];
     }
+    
     if (correlation > bestCorrelation) {
       bestCorrelation = correlation;
       bestOffset = offset;
@@ -28,8 +34,7 @@ function autoCorrelate(buffer: Float32Array, sampleRate: number) {
 
   const frequency = sampleRate / bestOffset;
   
-  // Only return frequency if correlation is strong enough
-  // and frequency is within human hearing/piano range
+  // Adjusted correlation check for normalized buffer
   if (bestCorrelation > 0.01 && frequency > 20 && frequency < 5000) {
     return {
       frequency,
