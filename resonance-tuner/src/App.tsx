@@ -62,10 +62,20 @@ function App() {
     setMode('VIRTUOSO');
   };
 
-  // Capture frequency data during SWEEP/CAPTURE
+  // Capture frequency data during SWEEP/CAPTURE and update progress
   useEffect(() => {
     if ((mode === 'SWEEP' || mode === 'CAPTURE') && isActive && pitchData && pitchData.frequency > 0) {
-      setCapturedData(prev => [...prev, pitchData.frequency]);
+      setCapturedData(prev => {
+        // Only add if the frequency represents a 'new' note area (at least 1Hz diff)
+        const isSignificant = !prev.some(f => Math.abs(f - pitchData.frequency) < 1.0);
+        if (isSignificant) {
+          const newData = [...prev, pitchData.frequency];
+          // We need roughly 50 data points for a valid profile
+          setSweepProgress(Math.min((newData.length / 50) * 100, 100));
+          return newData;
+        }
+        return prev;
+      });
     }
   }, [mode, isActive, pitchData]);
 
