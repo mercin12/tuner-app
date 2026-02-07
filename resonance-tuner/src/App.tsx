@@ -257,27 +257,6 @@ function App() {
 }
 
 export default App;
-
-
-      {/* Footer / Controls */}
-      <footer className="p-8 flex flex-col items-center border-t border-slate-900 bg-slate-950">
-        <button
-          onClick={isActive ? stopAudio : startAudio}
-          className={`w-20 h-20 rounded-full flex items-center justify-center transition-all transform active:scale-95 shadow-2xl ${
-            isActive 
-            ? 'bg-rose-600 hover:bg-rose-500 shadow-rose-900/20' 
-            : 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-900/20'
-          }`}
-        >
-          {isActive ? (
-            <div className="w-6 h-6 bg-white rounded-sm" />
-          ) : (
-            <div className="w-0 h-0 border-y-[12px] border-y-transparent border-l-[20px] border-l-white ml-1" />
-          )}
-        </button>
-        <p className="mt-4 text-[10px] text-slate-600 font-bold uppercase tracking-[0.3em]">
-          {isActive ? 'Listening...' : 'Ready to Tune'}
-        </p>
       </footer>
     </div>
   );
