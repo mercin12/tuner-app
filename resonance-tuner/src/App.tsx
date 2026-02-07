@@ -57,6 +57,11 @@ function App() {
     }
   };
 
+  const handleLoadProfile = (profile: PianoProfile) => {
+    setActiveProfile(profile);
+    setMode('VIRTUOSO');
+  };
+
   // Capture frequency data during SWEEP/CAPTURE
   useEffect(() => {
     if ((mode === 'SWEEP' || mode === 'CAPTURE') && isActive && pitchData && pitchData.frequency > 0) {
