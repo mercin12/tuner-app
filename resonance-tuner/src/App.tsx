@@ -145,10 +145,10 @@ function App() {
 
             {sweepProgress >= 100 && (
               <button 
-                onClick={() => handleSaveProfile(mode === 'SWEEP' ? 'INHARMONICITY' : 'REFERENCE_TUNING')}
+                onClick={() => handleSaveProfile(mode === 'CAPTURE' ? 'REFERENCE_TUNING' : 'INHARMONICITY')}
                 className={`w-full py-4 ${mode === 'CAPTURE' ? 'bg-purple-600 hover:bg-purple-500 shadow-purple-900/20' : 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-900/20'} text-white font-black rounded-xl shadow-lg transition-all transform active:scale-95`}
               >
-                {mode === 'SWEEP' ? 'SAVE PIANO PROFILE' : 'SAVE REFERENCE TUNING'}
+                {mode === 'CAPTURE' ? 'SAVE REFERENCE TUNING' : 'SAVE PIANO PROFILE'}
               </button>
             )}
 
