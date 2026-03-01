@@ -5,8 +5,8 @@ import { HelpModal } from './components/visualizers/HelpModal';
 import { SweepExplanation } from './components/visualizers/SweepExplanation';
 import { TermsOfService } from './components/TermsOfService';
 import { TermsPage } from './components/TermsPage';
-import { savePianoProfile, fetchPianoProfiles } from './services/database';
-import type { PianoProfile } from './services/database';
+import { saveTuningProfile, fetchTuningProfiles, GUITAR_TUNINGS } from './services/database';
+import type { TuningProfile } from './services/database';
 
 type UserMode = 'NOVICE' | 'VIRTUOSO' | 'CALIBRATION' | 'HELP' | 'LONG_EXPLANATION' | 'LIBRARY' | 'CAPTURE' | 'TERMS';
 
@@ -14,8 +14,8 @@ function App() {
   const [mode, setMode] = useState<UserMode>('NOVICE');
   const [sweepProgress, setSweepProgress] = useState(0);
   const [capturedData, setCapturedData] = useState<number[]>([]);
-  const [activeProfile, setActiveProfile] = useState<PianoProfile | null>(null);
-  const [profiles, setProfiles] = useState<PianoProfile[]>([]);
+  const [activeProfile, setActiveProfile] = useState<TuningProfile | null>(GUITAR_TUNINGS[0]); // Default to E Standard
+  const [profiles, setProfiles] = useState<TuningProfile[]>([]);
   const [isMenuVisible, setIsMenuVisible] = useState(true);
   const [hasAcceptedTerms, setHasAcceptedTerms] = useState(false);
   
@@ -53,7 +53,7 @@ function App() {
     }
     if (newMode === 'LIBRARY') {
       try {
-        const data = await fetchPianoProfiles();
+        const data = await fetchTuningProfiles();
         setProfiles(data);
       } catch (e) {
         console.error(e);
@@ -68,22 +68,43 @@ function App() {
   const handleSaveProfile = async (type: 'INHARMONICITY' | 'REFERENCE_TUNING') => {
     const name = prompt(type === 'INHARMONICITY' ? "Name this Piano Profile (e.g. 'Yamaha C3'):" : "Name this Reference Tuning (e.g. 'Concert Pitch 2024'):");
     if (name) {
-      const newProfile: PianoProfile = {
+      const newProfile: TuningProfile = {
         name,
         type,
-        speakingLength: 0,
         data: capturedData
       };
-      await savePianoProfile(newProfile);
+      await saveTuningProfile(newProfile);
       alert("Saved to Library!");
       setActiveProfile(newProfile);
       setMode('VIRTUOSO');
     }
   };
 
-  const handleLoadProfile = (profile: PianoProfile) => {
+  const handleCustomTuning = async () => {
+    const name = prompt("Name your custom tuning (e.g. 'Open G'):");
+    if (!name) return;
+    
+    const hzString = prompt("Enter target frequencies separated by commas (e.g. '82.41, 110.0, 146.83'):");
+    if (!hzString) return;
+
+    const data = hzString.split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n));
+    if (data.length > 0) {
+      const newProfile: TuningProfile = {
+        name,
+        type: 'INSTRUMENT_TARGETS',
+        instrument: 'OTHER',
+        data
+      };
+      await saveTuningProfile(newProfile);
+      setProfiles(prev => [...prev, newProfile]);
+      setActiveProfile(newProfile);
+      setMode('NOVICE');
+    }
+  };
+
+  const handleLoadProfile = (profile: TuningProfile) => {
     setActiveProfile(profile);
-    setMode('VIRTUOSO');
+    setMode('NOVICE');
   };
 
   // Capture frequency data during CALIBRATION/CAPTURE and update progress
@@ -161,38 +182,66 @@ function App() {
             <TermsPage onBack={() => setMode('NOVICE')} />
           </div>
         ) : mode === 'LIBRARY' ? (
-          <div className="w-full max-w-md space-y-4">
-            <h2 className="text-2xl font-bold text-slate-200 mb-6 flex items-center gap-2">
-              Piano Library
-              <button onClick={() => handleModeChange('CAPTURE')} className="ml-auto text-[10px] bg-blue-600 px-3 py-1 rounded-full hover:bg-blue-500 transition-colors uppercase tracking-wider">+ Capture Ref</button>
-            </h2>
-            {profiles.length === 0 ? (
-              <div className="text-center text-slate-500 py-10 bg-slate-900/50 rounded-2xl border border-slate-800 border-dashed">
-                <p>No saved profiles yet.</p>
-                <p className="text-xs mt-2">Run a Calibration or Capture to save one.</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {profiles.map((p, i) => (
-                  <div key={i} className="bg-slate-900 p-4 rounded-xl border border-slate-800 flex justify-between items-center hover:border-blue-500/50 transition-colors group">
-                    <div>
-                      <h3 className="font-bold text-white group-hover:text-blue-400 transition-colors text-sm">{p.name}</h3>
-                      <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-tighter ${
-                        p.type === 'REFERENCE_TUNING' ? 'bg-purple-500/20 text-purple-300' : 'bg-emerald-500/20 text-emerald-300'
-                      }`}>
-                        {p.type === 'REFERENCE_TUNING' ? 'REF TUNING' : 'PROFILE'}
-                      </span>
+          <div className="w-full max-w-md space-y-8">
+            {/* Instrument Presets */}
+            <section className="space-y-4">
+              <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest px-1">Instrument Presets</h3>
+              <div className="grid grid-cols-1 gap-2">
+                {GUITAR_TUNINGS.map((p, i) => (
+                  <button 
+                    key={`preset-${i}`}
+                    onClick={() => handleLoadProfile(p)}
+                    className={`p-4 rounded-xl border flex justify-between items-center transition-all ${activeProfile?.name === p.name ? 'bg-blue-600/20 border-blue-500 shadow-lg shadow-blue-900/20' : 'bg-slate-900 border-slate-800 hover:border-slate-700'}`}
+                  >
+                    <div className="text-left">
+                      <div className="font-bold text-sm text-white">{p.name}</div>
+                      <div className="text-[10px] text-slate-500 font-mono">{p.data.length} Strings</div>
                     </div>
-                    <button 
-                      onClick={() => handleLoadProfile(p)}
-                      className="px-4 py-2 bg-slate-800 hover:bg-blue-600 rounded-lg text-[10px] font-black transition-colors"
-                    >
-                      LOAD
-                    </button>
-                  </div>
+                    <div className={`px-3 py-1 rounded-lg text-[10px] font-black ${activeProfile?.name === p.name ? 'bg-blue-500 text-white' : 'bg-slate-800 text-slate-400'}`}>
+                      {activeProfile?.name === p.name ? 'ACTIVE' : 'SELECT'}
+                    </div>
+                  </button>
                 ))}
               </div>
-            )}
+            </section>
+
+            {/* Custom Profiles */}
+            <section className="space-y-4">
+              <div className="flex justify-between items-center px-1">
+                <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest">Custom & Captures</h3>
+                <div className="flex gap-2">
+                  <button onClick={() => handleModeChange('CAPTURE')} className="text-[10px] bg-purple-600 px-3 py-1 rounded-full hover:bg-purple-500 transition-colors uppercase font-black tracking-wider shadow-lg shadow-purple-900/20">Capture Ref</button>
+                  <button onClick={() => handleCustomTuning()} className="text-[10px] bg-blue-600 px-3 py-1 rounded-full hover:bg-blue-500 transition-colors uppercase font-black tracking-wider shadow-lg shadow-blue-900/20">+ Custom</button>
+                </div>
+              </div>
+              
+              {profiles.length === 0 ? (
+                <div className="text-center text-slate-500 py-10 bg-slate-900/50 rounded-2xl border border-slate-800 border-dashed">
+                  <p className="text-sm">No custom profiles saved.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {profiles.map((p, i) => (
+                    <div key={i} className="bg-slate-900 p-4 rounded-xl border border-slate-800 flex justify-between items-center hover:border-blue-500/50 transition-colors group">
+                      <div>
+                        <h3 className="font-bold text-white group-hover:text-blue-400 transition-colors text-sm">{p.name}</h3>
+                        <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-tighter ${
+                          p.type === 'REFERENCE_TUNING' ? 'bg-purple-500/20 text-purple-300' : 'bg-emerald-500/20 text-emerald-300'
+                        }`}>
+                          {p.type === 'REFERENCE_TUNING' ? 'REF TUNING' : 'PIANO PROFILE'}
+                        </span>
+                      </div>
+                      <button 
+                        onClick={() => handleLoadProfile(p)}
+                        className="px-4 py-2 bg-slate-800 hover:bg-blue-600 rounded-lg text-[10px] font-black transition-colors"
+                      >
+                        LOAD
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
           </div>
         ) : mode === 'LONG_EXPLANATION' ? (
           <div className="max-w-md w-full">
@@ -269,9 +318,9 @@ function App() {
               {activeProfile && (
                 <div className="absolute -top-12 left-0 right-0 flex justify-center">
                   <span className={`text-[10px] px-3 py-1 rounded-full font-bold uppercase tracking-wider ${
-                    activeProfile.type === 'REFERENCE_TUNING' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30 shadow-lg shadow-purple-900/10' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shadow-lg shadow-emerald-900/10'
+                    activeProfile.type === 'REFERENCE_TUNING' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30 shadow-lg shadow-purple-900/10' : (activeProfile.type === 'INSTRUMENT_TARGETS' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30 shadow-lg shadow-blue-900/10' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shadow-lg shadow-emerald-900/10')
                   }`}>
-                    Active: {activeProfile.name}
+                    {activeProfile.name}
                   </span>
                 </div>
               )}

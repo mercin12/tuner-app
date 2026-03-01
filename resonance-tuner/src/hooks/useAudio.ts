@@ -1,9 +1,9 @@
 import { useState, useRef, useCallback } from 'react';
 import type { PitchResult } from '../types/audio';
 import { getNoteFromFrequency } from '../audio/utils/noteUtils';
-import type { PianoProfile } from '../services/database';
+import type { TuningProfile } from '../services/database';
 
-export const useAudio = (activeProfile?: PianoProfile | null) => {
+export const useAudio = (activeProfile?: TuningProfile | null) => {
   const [isActive, setIsActive] = useState(false);
   const [pitchData, setPitchData] = useState<PitchResult | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
