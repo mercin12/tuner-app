@@ -7,6 +7,7 @@ interface PhaseRingProps {
 
 export const PhaseRing: React.FC<PhaseRingProps> = ({ cents, isActive }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const smoothCentsRef = useRef(0);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -32,9 +33,12 @@ export const PhaseRing: React.FC<PhaseRingProps> = ({ cents, isActive }) => {
       ctx.stroke();
 
       if (isActive) {
+        // Internal smoothing for the visual rotation speed
+        smoothCentsRef.current += (cents - smoothCentsRef.current) * 0.1;
+
         // Rotation speed based on cents deviation
         // If cents is 0, rotation should be very slow or stop
-        const speed = cents * 0.05;
+        const speed = smoothCentsRef.current * 0.05;
         rotation += speed;
 
         // Draw pulsing phase markers
@@ -45,7 +49,8 @@ export const PhaseRing: React.FC<PhaseRingProps> = ({ cents, isActive }) => {
 
           ctx.beginPath();
           ctx.arc(x, y, 4, 0, Math.PI * 2);
-          ctx.fillStyle = Math.abs(cents) < 1 ? '#10b981' : '#3b82f6';
+          // Use smooth cents for the color transition too for less flickering
+          ctx.fillStyle = Math.abs(smoothCentsRef.current) < 1 ? '#10b981' : '#3b82f6';
           ctx.fill();
         }
 
@@ -55,6 +60,9 @@ export const PhaseRing: React.FC<PhaseRingProps> = ({ cents, isActive }) => {
         ctx.arc(centerX, centerY, radius + pulse, 0, Math.PI * 2);
         ctx.strokeStyle = `rgba(59, 130, 246, ${0.2 + Math.random() * 0.1})`;
         ctx.stroke();
+      } else {
+        // Reset smoothing when inactive
+        smoothCentsRef.current = 0;
       }
 
       animationId = requestAnimationFrame(render);

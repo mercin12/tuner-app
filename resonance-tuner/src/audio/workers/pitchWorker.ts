@@ -1,6 +1,9 @@
 // Pitch detection worker for heavy lifting
 // Upgraded with Autocorrelation and Parabolic Interpolation for high precision
-// Included basic Inharmonicity (B) estimation based on partial analysis
+// Included Pitch Smoothing and "Sticky" logic to prevent jitter during decay
+
+let stableFrequency = 0;
+const SMOOTHING_FACTOR = 0.2; // Adjust between 0 and 1 (lower = smoother/slower)
 
 self.onmessage = (e: MessageEvent) => {
   const { buffer, sampleRate } = e.data;
@@ -19,8 +22,10 @@ function detectPitch(buffer: Float32Array, sampleRate: number) {
   for (let i = 0; i < SIZE; i++) sum += buffer[i] * buffer[i];
   const rms = Math.sqrt(sum / SIZE);
   
-  if (rms < 0.005) {
-    return { frequency: 0, bCoefficient: 0, clarity: 0, timestamp: Date.now() };
+  // Higher threshold to ignore background noise and very weak tails
+  if (rms < 0.008) {
+    // We don't reset stableFrequency immediately to allow for short gaps
+    return { frequency: stableFrequency, bCoefficient: 0, clarity: 0, timestamp: Date.now(), isSilent: true };
   }
 
   // 2. Autocorrelation
@@ -44,8 +49,11 @@ function detectPitch(buffer: Float32Array, sampleRate: number) {
     }
   }
 
-  if (maxpos === -1 || maxval < 0.2 * c[0]) {
-    return { frequency: 0, bCoefficient: 0, clarity: 0, timestamp: Date.now() };
+  // Clarity represents how "periodic" the signal is
+  const clarity = maxval / c[0];
+
+  if (maxpos === -1 || clarity < 0.3) {
+    return { frequency: stableFrequency, bCoefficient: 0, clarity: 0, timestamp: Date.now(), isSilent: true };
   }
 
   // 3. Parabolic Interpolation for sub-sample accuracy
@@ -55,20 +63,34 @@ function detectPitch(buffer: Float32Array, sampleRate: number) {
   const b = (x3 - x1) / 2;
   if (a !== 0) T0 = T0 - b / (2 * a);
 
-  const frequency = sampleRate / T0;
-  const clarity = maxval / c[0];
+  const rawFrequency = sampleRate / T0;
 
-  // 4. Basic Inharmonicity Estimation (Simplified B-coefficient)
-  // We look at the FFT to find partials if the signal is clear enough
-  // For the prototype, we'll return a nominal B or 0 if not enough data
-  // In a full implementation, we would run a second pass on the FFT peaks here.
-  const bCoefficient = estimateInharmonicity(buffer, sampleRate, frequency);
+  // 4. "Sticky" Smoothing Logic
+  if (stableFrequency === 0) {
+    stableFrequency = rawFrequency;
+  } else {
+    const diffCents = 1200 * Math.log2(rawFrequency / stableFrequency);
+    
+    // If the change is small (< 50 cents), it's the same note, so smooth it.
+    // If the change is large, it's a new note, so jump immediately.
+    if (Math.abs(diffCents) < 50) {
+      stableFrequency = stableFrequency + (rawFrequency - stableFrequency) * SMOOTHING_FACTOR;
+    } else {
+      // Significant change detected - jump to new note if clarity is high
+      if (clarity > 0.6) {
+        stableFrequency = rawFrequency;
+      }
+    }
+  }
+
+  const bCoefficient = estimateInharmonicity(buffer, sampleRate, stableFrequency);
 
   return {
-    frequency,
+    frequency: stableFrequency,
     bCoefficient,
     clarity,
-    timestamp: Date.now()
+    timestamp: Date.now(),
+    isSilent: false
   };
 }
 
