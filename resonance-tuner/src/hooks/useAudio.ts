@@ -28,7 +28,7 @@ export const useAudio = (activeProfile?: PianoProfile | null) => {
       workerRef.current = new Worker(new URL('../audio/workers/pitchWorker.ts', import.meta.url), { type: 'module' });
       
       workerRef.current.onmessage = (e) => {
-        const { frequency, clarity, bCoefficient } = e.data;
+        const { frequency, clarity, bCoefficient, isSilent } = e.data;
         if (frequency > 0) {
           const result = getNoteFromFrequency(frequency, activeProfile, bCoefficient);
           if (result) {
@@ -36,7 +36,9 @@ export const useAudio = (activeProfile?: PianoProfile | null) => {
               frequency,
               note: result.note,
               cents: result.cents,
-              clarity
+              clarity,
+              inTune: result.inTune,
+              isSilent: !!isSilent
             });
           }
         }
@@ -45,16 +47,12 @@ export const useAudio = (activeProfile?: PianoProfile | null) => {
       let isRunning = true;
       const poll = () => {
         if (!isRunning) return;
-        
         const buffer = new Float32Array(2048);
         processor.getFloatTimeDomainData(buffer);
-        
-        // Pass to worker
         workerRef.current?.postMessage({ 
           buffer, 
           sampleRate: audioContext.sampleRate 
         });
-        
         requestAnimationFrame(poll);
       };
 
@@ -75,6 +73,7 @@ export const useAudio = (activeProfile?: PianoProfile | null) => {
     streamRef.current?.getTracks().forEach(track => track.stop());
     audioContextRef.current?.close();
     workerRef.current?.terminate();
+    setPitchData(null);
   }, []);
 
   return { isActive, pitchData, startAudio, stopAudio };

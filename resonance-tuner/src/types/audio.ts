@@ -2,7 +2,9 @@ export interface PitchResult {
   frequency: number;
   note: string;
   cents: number;
-  clarity: number; // For spectral entropy confidence
+  clarity: number;
+  inTune: boolean;
+  isSilent: boolean;
 }
 
 export interface InharmonicityProfile {

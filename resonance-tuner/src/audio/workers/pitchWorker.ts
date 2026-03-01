@@ -20,7 +20,7 @@ function detectPitch(buffer: Float32Array, sampleRate: number) {
   for (let i = 0; i < SIZE; i++) sum += buffer[i] * buffer[i];
   const rms = Math.sqrt(sum / SIZE);
   
-  // Ignore noise
+  // Ignore noise - return last stable freq but mark as silent
   if (rms < 0.01) {
     return { frequency: stableFrequency, bCoefficient: 0, clarity: 0, timestamp: Date.now(), isSilent: true };
   }
@@ -98,8 +98,15 @@ function detectPitch(buffer: Float32Array, sampleRate: number) {
   };
 }
 
+/**
+ * Simplified inharmonicity estimation (B)
+ * Based on Rigaud (2013): f_n = n * F0 * sqrt(1 + B * n^2)
+ */
 function estimateInharmonicity(_buffer: Float32Array, _sampleRate: number, f0: number): number {
-  if (f0 < 100) return 0.0004;
-  if (f0 < 400) return 0.0002;
-  return 0.0001;
+  // Refining middle octave B-coefficients to prevent over-stretching
+  // G4 (392Hz) should have a very low B (closer to 0.0001)
+  if (f0 < 100) return 0.0004; // Bass
+  if (f0 < 250) return 0.0002; // Low-Mid
+  if (f0 < 600) return 0.0001; // Middle
+  return 0.00005; // High
 }
