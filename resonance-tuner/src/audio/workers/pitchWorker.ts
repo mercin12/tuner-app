@@ -2,8 +2,6 @@
 // Upgraded with Autocorrelation and Parabolic Interpolation for high precision
 // Included basic Inharmonicity (B) estimation based on partial analysis
 
-let lastFrequency = 0;
-
 self.onmessage = (e: MessageEvent) => {
   const { buffer, sampleRate } = e.data;
   
@@ -22,7 +20,6 @@ function detectPitch(buffer: Float32Array, sampleRate: number) {
   const rms = Math.sqrt(sum / SIZE);
   
   if (rms < 0.005) {
-    lastFrequency = 0;
     return { frequency: 0, bCoefficient: 0, clarity: 0, timestamp: Date.now() };
   }
 
@@ -79,7 +76,7 @@ function detectPitch(buffer: Float32Array, sampleRate: number) {
  * Simplified inharmonicity estimation (B)
  * Based on Rigaud (2013): f_n = n * F0 * sqrt(1 + B * n^2)
  */
-function estimateInharmonicity(buffer: Float32Array, sampleRate: number, f0: number): number {
+function estimateInharmonicity(_buffer: Float32Array, _sampleRate: number, f0: number): number {
   // In a real implementation, we'd do an FFT here and find the 2nd/3rd partials.
   // For now, we'll return a placeholder that matches common piano profiles (e.g., 0.0001 to 0.0005)
   // based on the frequency (higher B for lower notes).
