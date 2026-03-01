@@ -88,12 +88,13 @@ function App() {
 
   // Capture frequency data during CALIBRATION/CAPTURE and update progress
   useEffect(() => {
-    if ((mode === 'CALIBRATION' || mode === 'CAPTURE') && isActive && pitchData && pitchData.frequency > 0) {
+    if ((mode === 'CALIBRATION' || mode === 'CAPTURE') && isActive && pitchData && pitchData.frequency > 0 && pitchData.clarity > 0.5) {
       setCapturedData(prev => {
         const isSignificant = !prev.some(f => Math.abs(f - pitchData.frequency) < 1.0);
         if (isSignificant) {
           const newData = [...prev, pitchData.frequency];
-          setSweepProgress(Math.min((newData.length / 50) * 100, 100));
+          // Assuming 88 notes on a piano for 100% progress
+          setSweepProgress(Math.min((newData.length / 88) * 100, 100));
           return newData;
         }
         return prev;

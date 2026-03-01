@@ -16,7 +16,7 @@ export const useAudio = (activeProfile?: PianoProfile | null) => {
       streamRef.current = stream;
       
       const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      await audioContext.resume(); // Crucial for mobile browsers
+      await audioContext.resume();
       audioContextRef.current = audioContext;
       
       const source = audioContext.createMediaStreamSource(stream);
@@ -28,45 +28,32 @@ export const useAudio = (activeProfile?: PianoProfile | null) => {
       workerRef.current = new Worker(new URL('../audio/workers/pitchWorker.ts', import.meta.url), { type: 'module' });
       
       workerRef.current.onmessage = (e) => {
-        const freq = e.data.frequency;
-        if (freq > 0) {
-          const result = getNoteFromFrequency(freq, activeProfile);
+        const { frequency, clarity, bCoefficient } = e.data;
+        if (frequency > 0) {
+          const result = getNoteFromFrequency(frequency, activeProfile, bCoefficient);
           if (result) {
             setPitchData({
-              frequency: freq,
+              frequency,
               note: result.note,
               cents: result.cents,
-              clarity: 0.95
+              clarity
             });
           }
         }
       };
 
-      // Poll audio data
       let isRunning = true;
-
       const poll = () => {
         if (!isRunning) return;
         
         const buffer = new Float32Array(2048);
         processor.getFloatTimeDomainData(buffer);
         
-        let sum = 0;
-        for (let i = 0; i < buffer.length; i++) sum += buffer[i] * buffer[i];
-        const rms = Math.sqrt(sum / buffer.length);
-        
-        // Lower threshold to 0.002 to capture sustain
-        if (rms > 0.002) { 
-          // Use Transferable Objects
-          workerRef.current?.postMessage({ 
-            buffer, 
-            sampleRate: audioContext.sampleRate 
-          }, [buffer.buffer]);
-        } else {
-          // Send a valid "silence" buffer or just handle silence in the main thread
-          // Sending nothing prevents the worker from crashing
-          // We handle silence in the UI by checking pitchData.clarity
-        }
+        // Pass to worker
+        workerRef.current?.postMessage({ 
+          buffer, 
+          sampleRate: audioContext.sampleRate 
+        });
         
         requestAnimationFrame(poll);
       };
@@ -77,18 +64,10 @@ export const useAudio = (activeProfile?: PianoProfile | null) => {
       (window as any)._stopResonance = () => {
         isRunning = false;
       };
-
-      setIsActive(true);
-      poll();
-
-      // Store stop function
-      (window as any)._stopResonance = () => {
-        isRunning = false;
-      };
     } catch (err) {
       console.error("Microphone access denied", err);
     }
-  }, []); // Removed isActive dependency to prevent loop recreation
+  }, [activeProfile]);
 
   const stopAudio = useCallback(() => {
     setIsActive(false);
