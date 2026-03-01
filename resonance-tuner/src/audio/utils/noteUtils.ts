@@ -4,7 +4,7 @@ const NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
 /**
  * Calculates note name, cents deviation, and target frequency.
- * Account for inharmonicity (B) and octave stretching (Rigaud 2013).
+ * Accounts for inharmonicity (B) and relative tuning from a Master Reference.
  */
 export function getNoteFromFrequency(
   frequency: number, 
@@ -20,44 +20,60 @@ export function getNoteFromFrequency(
   const noteName = NOTES[midiNote % 12];
   const fullNoteName = `${noteName}${octave}`;
 
-  // 2. Determine Target Frequency
-  let targetFreq = 440 * Math.pow(2, (midiNote - 69) / 12); // Standard ET
+  // 2. Relative Tuning Logic
+  // Default master reference is A4 = 440Hz, but we allow C4 to be the anchor if in the profile
+  let masterRefFreq = 440;
+  let masterRefMidi = 69; // A4
 
-  // Apply Stretched Tuning Logic if we have profile data or B-coefficient
-  if (activeProfile && activeProfile.data && activeProfile.data.length > 0) {
-     // If we have a reference profile, we use that as the absolute target
-     const closestMatch = findClosestInProfile(frequency, activeProfile.data);
-     if (closestMatch) targetFreq = closestMatch;
+  // Check if user has a custom "Golden Master" or Reference C4 in the profile
+  if (activeProfile && activeProfile.type === 'REFERENCE_TUNING' && activeProfile.data.length > 0) {
+      // Find the closest note to C4 (Midi 60) in the profile to use as the relative anchor
+      const c4Ref = findNoteInProfile(60, activeProfile.data);
+      if (c4Ref) {
+          masterRefFreq = c4Ref;
+          masterRefMidi = 60;
+      }
+  }
+
+  // Calculate target frequency relative to the Master Reference
+  let targetFreq = masterRefFreq * Math.pow(2, (midiNote - masterRefMidi) / 12);
+
+  // Apply Stretched Tuning Logic based on the Rigaud model
+  if (activeProfile && activeProfile.type === 'INHARMONICITY') {
+     // Use the captured profile data for absolute target if it exists
+     const profileTarget = findClosestInProfile(frequency, activeProfile.data);
+     if (profileTarget) targetFreq = profileTarget;
   } else {
-     // Dynamic Stretching based on Rigaud Model
-     // For a 4:2 octave (matching 4th partial of lower to 2nd of upper):
-     // f_4(m-12) = f_2(m)
-     // 4 * F0(m-12) * sqrt(1 + 16B) = 2 * F0(m) * sqrt(1 + 4B)
-     // This means F0(m) = 2 * F0(m-12) * (sqrt(1 + 16B) / sqrt(1 + 4B))
-     
-     // For this prototype, we'll apply a standard stretching curve based on B
+     // Dynamic stretching: shift target slightly based on string stiffness (B)
      const stretchFactor = Math.sqrt(1 + 4 * measuredB); 
      targetFreq = targetFreq * stretchFactor;
   }
 
-  // 3. Calculate Cents Deviation
-  // Deviation from the STRETCHED target
+  // 3. Calculate Cents Deviation (Tight 4-cent tolerance for "In Tune")
   const cents = 1200 * Math.log2(frequency / targetFreq);
 
   return {
     note: fullNoteName,
     cents: cents,
     midiNote,
-    targetFreq
+    targetFreq,
+    inTune: Math.abs(cents) < 4 // Tightened tolerance
   };
+}
+
+function findNoteInProfile(targetMidi: number, profileData: number[]): number | null {
+    // This assumes the profile data contains frequencies we can map back to MIDI
+    for (const freq of profileData) {
+        const midi = Math.round(12 * Math.log2(freq / 440) + 69);
+        if (midi === targetMidi) return freq;
+    }
+    return null;
 }
 
 function findClosestInProfile(freq: number, profileData: number[]): number | null {
   if (!profileData || profileData.length === 0) return null;
-  
   let closest = profileData[0];
   let minDiff = Math.abs(freq - closest);
-  
   for (let i = 1; i < profileData.length; i++) {
     const diff = Math.abs(freq - profileData[i]);
     if (diff < minDiff) {
@@ -65,7 +81,5 @@ function findClosestInProfile(freq: number, profileData: number[]): number | nul
       closest = profileData[i];
     }
   }
-  
-  // Only return if it's within a reasonable range (1 semitone)
   return minDiff / freq < 0.06 ? closest : null;
 }

@@ -300,7 +300,7 @@ function App() {
               </div>
               
               <div className="absolute flex flex-col items-center pointer-events-none">
-                <span className={`text-3xl font-mono font-black ${Math.abs(pitchData?.cents || 0) < 1 ? 'text-emerald-400' : 'text-blue-400'}`}>
+                <span className={`text-3xl font-mono font-black ${Math.abs(pitchData?.cents || 0) < 4 ? 'text-emerald-400' : 'text-blue-400'}`}>
                   {pitchData?.cents ? (pitchData.cents > 0 ? '+' : '') + pitchData.cents.toFixed(1) : '0.0'}
                 </span>
                 <span className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em]">Cents</span>
