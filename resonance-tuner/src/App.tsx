@@ -4,7 +4,7 @@ import { PhaseRing } from './components/visualizers/PhaseRing';
 import { HelpModal } from './components/visualizers/HelpModal';
 import { TermsOfService } from './components/TermsOfService';
 import { TermsPage } from './components/TermsPage';
-import { saveTuningProfile, fetchTuningProfiles, GUITAR_TUNINGS } from './services/database';
+import { saveTuningProfile, GUITAR_TUNINGS } from './services/database';
 import type { TuningProfile } from './services/database';
 
 type ViewMode = 'TUNER' | 'LIBRARY' | 'SETTINGS' | 'HELP' | 'TERMS' | 'LONG_EXPLANATION' | 'CALIBRATION' | 'CAPTURE';
@@ -19,7 +19,6 @@ function App() {
   const [sweepProgress, setSweepProgress] = useState(0);
   const [capturedData, setCapturedData] = useState<number[]>([]);
   const [activeProfile, setActiveProfile] = useState<TuningProfile | null>(null);
-  const [profiles, setProfiles] = useState<TuningProfile[]>([]);
   const [hasAcceptedTerms, setHasAcceptedTerms] = useState(false);
   
   const { isActive, pitchData, startAudio, stopAudio } = useAudio(activeProfile);
@@ -40,14 +39,6 @@ function App() {
 
   const handleViewChange = async (newView: ViewMode) => {
     setView(newView);
-    if (newView === 'LIBRARY') {
-      try {
-        const data = await fetchTuningProfiles();
-        setProfiles(data);
-      } catch (e) {
-        console.error(e);
-      }
-    }
   };
 
   const handlePianoLevelChange = (level: PianoLevel) => {
@@ -87,7 +78,6 @@ function App() {
         data
       };
       await saveTuningProfile(newProfile);
-      setProfiles(prev => [...prev, newProfile]);
       setActiveProfile(newProfile);
       setView('TUNER');
     }

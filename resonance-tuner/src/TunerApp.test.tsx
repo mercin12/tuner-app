@@ -16,17 +16,22 @@ describe('Resonance Tuner Navigation & Layout', () => {
 
   it('renders Tuner as the first navigation option and Help as the last', () => {
     acceptTerms();
-    // Use getByText to verify presence of nav buttons
-    expect(screen.getByText('Tuner')).toBeInTheDocument();
-    expect(screen.getByText('Library')).toBeInTheDocument();
-    expect(screen.getByText('Settings')).toBeInTheDocument();
-    expect(screen.getByText('Help')).toBeInTheDocument();
+    // Use getByText to verify presence of nav buttons in correct order
+    const tunerBtn = screen.getByText('Tuner');
+    const libraryBtn = screen.getByText('Library');
+    const settingsBtn = screen.getByText('Settings');
+    const helpBtn = screen.getByText('Help');
+
+    expect(tunerBtn).toBeInTheDocument();
+    expect(libraryBtn).toBeInTheDocument();
+    expect(settingsBtn).toBeInTheDocument();
+    expect(helpBtn).toBeInTheDocument();
   });
 
   it('shows Calibration option only when Piano instrument is selected', () => {
     acceptTerms();
     
-    // Default mode is General Tuner - Calibration should NOT be visible
+    // Default mode is General Tuner - Calibration should NOT be visible in the instrument-specific toggles
     expect(screen.queryByText('CALIBRATION')).not.toBeInTheDocument();
 
     // Select Piano
@@ -48,10 +53,8 @@ describe('Resonance Tuner Navigation & Layout', () => {
 
   it('renders the Play button in the tuner view', () => {
     acceptTerms();
-    // The play button is a button with an svg child
-    // In our App.tsx, it's the only one with these specific transition classes or we can find it by looking for the one that calls startAudio
     const buttons = screen.getAllByRole('button');
-    // The play button is likely the one with the large rounded classes
+    // The play button is likely the one with the large rounded classes and w-16
     const playButton = buttons.find(b => b.className.includes('rounded-full') && b.className.includes('w-16'));
     expect(playButton).toBeInTheDocument();
   });
