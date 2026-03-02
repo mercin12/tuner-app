@@ -3,9 +3,10 @@ import React, { useEffect, useRef } from 'react';
 interface PhaseRingProps {
   cents: number;
   isActive: boolean;
+  variant?: 'GENERAL' | 'GUITAR' | 'PIANO';
 }
 
-export const PhaseRing: React.FC<PhaseRingProps> = ({ cents, isActive }) => {
+export const PhaseRing: React.FC<PhaseRingProps> = ({ cents, isActive, variant = 'GENERAL' }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const smoothCentsRef = useRef(0);
 
@@ -25,44 +26,83 @@ export const PhaseRing: React.FC<PhaseRingProps> = ({ cents, isActive }) => {
       const centerY = canvas.height / 2;
       const radius = Math.min(centerX, centerY) * 0.8;
 
-      // Draw outer static ring
-      ctx.beginPath();
-      ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-      ctx.strokeStyle = '#334155';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-
       if (isActive) {
-        // Internal smoothing for the visual rotation speed
         smoothCentsRef.current += (cents - smoothCentsRef.current) * 0.1;
-
-        // Rotation speed based on cents deviation
-        // If cents is 0, rotation should be very slow or stop
-        const speed = smoothCentsRef.current * 0.05;
-        rotation += speed;
-
-        // Draw pulsing phase markers
-        for (let i = 0; i < 12; i++) {
-          const angle = (i * Math.PI * 2) / 12 + rotation;
-          const x = centerX + Math.cos(angle) * radius;
-          const y = centerY + Math.sin(angle) * radius;
-
-          ctx.beginPath();
-          ctx.arc(x, y, 4, 0, Math.PI * 2);
-          // Use smooth cents for the color transition too for less flickering
-          ctx.fillStyle = Math.abs(smoothCentsRef.current) < 1 ? '#10b981' : '#3b82f6';
-          ctx.fill();
-        }
-
-        // Pulse indicator
-        const pulse = Math.sin(Date.now() / 200) * 5;
-        ctx.beginPath();
-        ctx.arc(centerX, centerY, radius + pulse, 0, Math.PI * 2);
-        ctx.strokeStyle = `rgba(59, 130, 246, ${0.2 + Math.random() * 0.1})`;
-        ctx.stroke();
       } else {
-        // Reset smoothing when inactive
-        smoothCentsRef.current = 0;
+        smoothCentsRef.current += (0 - smoothCentsRef.current) * 0.05;
+      }
+
+      const isFineTuned = Math.abs(smoothCentsRef.current) < 4;
+      const accentColor = isFineTuned ? '#10b981' : '#3b82f6';
+
+      if (variant === 'GENERAL' || variant === 'PIANO') {
+        // Draw double glow rings
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+        ctx.strokeStyle = '#1e293b';
+        ctx.lineWidth = 8;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius + 15, 0, Math.PI * 2);
+        ctx.strokeStyle = isActive ? `${accentColor}44` : '#1e293b';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        if (variant === 'PIANO') {
+            // Draw progress-style arc for Piano
+            const startAngle = -Math.PI / 2;
+            const endAngle = startAngle + (smoothCentsRef.current / 50) * Math.PI;
+            
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius, startAngle, endAngle, smoothCentsRef.current < 0);
+            ctx.strokeStyle = accentColor;
+            ctx.lineWidth = 12;
+            ctx.lineCap = 'round';
+            ctx.stroke();
+        } else {
+            // Modern Needle for General
+            rotation = (smoothCentsRef.current / 50) * (Math.PI * 0.4);
+            const needleLen = radius - 10;
+            
+            ctx.save();
+            ctx.translate(centerX, centerY);
+            ctx.rotate(rotation);
+            
+            // Glow behind needle
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(0, -needleLen);
+            ctx.strokeStyle = `${accentColor}88`;
+            ctx.lineWidth = 8;
+            ctx.lineCap = 'round';
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(0, -needleLen);
+            ctx.strokeStyle = accentColor;
+            ctx.lineWidth = 4;
+            ctx.lineCap = 'round';
+            ctx.stroke();
+            
+            ctx.restore();
+        }
+      } else if (variant === 'GUITAR') {
+        // Minimal Ring for Guitar
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+        ctx.strokeStyle = '#1e293b';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        if (isActive) {
+            const angle = (smoothCentsRef.current / 50) * Math.PI;
+            ctx.beginPath();
+            ctx.arc(centerX + Math.cos(angle - Math.PI/2) * radius, centerY + Math.sin(angle - Math.PI/2) * radius, 6, 0, Math.PI * 2);
+            ctx.fillStyle = accentColor;
+            ctx.fill();
+        }
       }
 
       animationId = requestAnimationFrame(render);
@@ -70,14 +110,14 @@ export const PhaseRing: React.FC<PhaseRingProps> = ({ cents, isActive }) => {
 
     render();
     return () => cancelAnimationFrame(animationId);
-  }, [cents, isActive]);
+  }, [cents, isActive, variant]);
 
   return (
     <canvas 
       ref={canvasRef} 
       width={400} 
       height={400} 
-      className="max-w-full h-auto drop-shadow-2xl"
+      className="max-w-full h-auto drop-shadow-[0_0_30px_rgba(59,130,246,0.15)]"
     />
   );
 };
