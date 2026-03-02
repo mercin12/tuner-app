@@ -305,12 +305,32 @@ function App() {
         )}
 
         {view === 'HELP' && (
-          <div className="w-full max-w-2xl bg-[#0f172a]/50 p-8 rounded-3xl border border-slate-800/50 space-y-6">
-             <h2 className="text-2xl font-bold mb-4">Help Center</h2>
-             <div className="space-y-4 text-slate-400 text-sm leading-relaxed">
-                <p>Welcome to Resonance Tuner. Select your instrument below the gauge to get started.</p>
-                <p>For Piano, we recommend running a <b>Calibration</b> sweep first to create a custom profile based on your instrument's unique inharmonicity.</p>
+          <div className="w-full max-w-2xl bg-[#0f172a]/50 p-8 rounded-3xl border border-slate-800/50 space-y-8 overflow-y-auto max-h-[70vh] custom-scrollbar">
+             <div className="flex items-center gap-4 mb-4">
+                <div className="w-12 h-12 bg-blue-600/20 rounded-2xl flex items-center justify-center text-blue-400 font-bold text-xl">?</div>
+                <h2 className="text-3xl font-black tracking-tight">Help Center</h2>
              </div>
+             
+             <section className="space-y-4">
+                <h3 className="text-blue-400 font-black text-xs uppercase tracking-[0.3em]">Getting Started</h3>
+                <p className="text-slate-400 text-sm leading-relaxed">Select your instrument below the gauge. Click the <span className="text-emerald-400 font-bold">Play</span> button to begin. You must grant microphone access for the tuner to analyze audio signal.</p>
+             </section>
+
+             <section className="space-y-4">
+                <h3 className="text-blue-400 font-black text-xs uppercase tracking-[0.3em]">Guitar & Presets</h3>
+                <p className="text-slate-400 text-sm leading-relaxed">Switch to Guitar mode to access presets like <span className="text-slate-200">Drop D</span> or <span className="text-slate-200">432 Hz</span>. Our "Sticky" logic ensures the display stays locked to your string even as the note decays.</p>
+             </section>
+
+             <section className="space-y-4 border-l-2 border-purple-500/30 pl-6 py-2">
+                <h3 className="text-purple-400 font-black text-xs uppercase tracking-[0.3em]">Piano Calibration</h3>
+                <p className="text-slate-400 text-sm leading-relaxed italic">"Every piano is physically unique."</p>
+                <p className="text-slate-400 text-sm leading-relaxed">For professional piano tuning, select <span className="text-purple-400">Piano &rarr; Calibration</span>. Play every note on the keyboard sequentially. This allows our engine to map string inharmonicity and calculate a custom "Stretched" tuning target for your specific instrument.</p>
+             </section>
+
+             <section className="space-y-4 bg-red-950/10 p-6 rounded-2xl border border-red-900/20">
+                <h3 className="text-red-500 font-black text-xs uppercase tracking-[0.3em]">Safety Notice</h3>
+                <p className="text-slate-400 text-sm leading-relaxed">Tuning instruments under high tension (especially pianos) carries inherent physical risks. Please consult the <span className="text-red-400 font-bold">Terms of Service</span> before attempting mechanical adjustments.</p>
+             </section>
           </div>
         )}
 
