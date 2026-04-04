@@ -27,7 +27,11 @@ export const PhaseRing: React.FC<PhaseRingProps> = ({ cents, isActive, variant =
       const radius = Math.min(centerX, centerY) * 0.8;
 
       if (isActive) {
-        smoothCentsRef.current += (cents - smoothCentsRef.current) * 0.1;
+        // Adaptive smoothing: fast when far off, gentle when close
+        // Far (>25¢): snaps quickly | Getting close (8-25¢): clear movement | In zone (<8¢): rock-steady
+        const error = Math.abs(cents - smoothCentsRef.current);
+        const factor = error > 25 ? 0.5 : error > 8 ? 0.25 : 0.08;
+        smoothCentsRef.current += (cents - smoothCentsRef.current) * factor;
       } else {
         smoothCentsRef.current += (0 - smoothCentsRef.current) * 0.05;
       }
