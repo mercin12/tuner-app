@@ -189,14 +189,12 @@ function App() {
                 </div>
               ) : (
                 <>
+                  <div className="text-7xl font-mono font-black text-white tracking-tight">
+                    {pitchData?.note || 'A4'}
+                  </div>
                   <div className="text-blue-400 font-mono text-xl tracking-widest">
                     {pitchData?.frequency.toFixed(1) || '440.0'} Hz
                   </div>
-                  {instrument === 'PIANO' && (
-                    <div className="inline-block px-6 py-1.5 bg-slate-800/50 rounded-full border border-slate-700 text-slate-300 font-bold text-sm">
-                      {pitchData?.note || 'C4'}
-                    </div>
-                  )}
                 </>
               )}
             </div>
