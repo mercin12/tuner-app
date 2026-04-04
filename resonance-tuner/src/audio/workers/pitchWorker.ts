@@ -1,10 +1,9 @@
 // Pitch detection worker with median filtering for stability + responsiveness
-// Features: Median window (noise rejection without lag), fixed clipping direction,
-// window-clear on large note jumps for instant response
+// Features: 4096-sample buffer for low-note support, sub-harmonic verification
+// to prevent octave errors, adaptive clipping, and median window for noise rejection
 
 let recentFreqs: number[] = [];
 const MEDIAN_WINDOW = 5;
-// Large jumps (new note): clear the window to snap immediately if clarity is good
 const JUMP_THRESHOLD_CENTS = 50;
 
 self.onmessage = (e: MessageEvent) => {
@@ -22,13 +21,14 @@ function detectPitch(buffer: Float32Array, sampleRate: number) {
   const rms = Math.sqrt(sum / SIZE);
 
   if (rms < 0.01) {
-    recentFreqs = []; // Clear history on silence so stale readings don't persist
+    recentFreqs = [];
     return { frequency: 0, bCoefficient: 0, clarity: 0, timestamp: Date.now(), isSilent: true };
   }
 
-  // 2. Clip to strong signal region (find first/last sample at or above threshold)
+  // 2. Adaptive clipping — threshold scales with signal level so quiet
+  //    low notes aren't over-trimmed while loud signals still get clipped cleanly
   let r1 = 0, r2 = SIZE - 1;
-  const threshold = 0.2;
+  const threshold = Math.max(0.05, rms * 1.5);
   for (let i = 0; i < SIZE / 2; i++) {
     if (Math.abs(buffer[i]) >= threshold) { r1 = i; break; }
   }
@@ -50,9 +50,11 @@ function detectPitch(buffer: Float32Array, sampleRate: number) {
     }
   }
 
+  // Walk past the initial decreasing region to find the first trough
   let d = 0;
-  while (c[d] > c[d + 1]) d++;
+  while (d < c.length - 1 && c[d] > c[d + 1]) d++;
 
+  // Find the highest peak after the first trough
   let maxval = -1;
   let maxpos = -1;
   for (let i = d; i < c.length; i++) {
@@ -68,7 +70,35 @@ function detectPitch(buffer: Float32Array, sampleRate: number) {
     return { frequency: fallback, bCoefficient: 0, clarity: 0, timestamp: Date.now(), isSilent: true };
   }
 
-  // 4. Parabolic Interpolation for sub-sample precision
+  // 4. Sub-harmonic verification — prevent octave errors
+  // Autocorrelation of a periodic signal has peaks at lag T, 2T, 3T...
+  // If we found a peak at lag T, check whether a valid peak exists near 2T.
+  // If it does, the real fundamental is the lower frequency (lag 2T), and
+  // what we found at T was just the second harmonic.
+  const doublePos = maxpos * 2;
+  if (doublePos < c.length - 1) {
+    // Search ±5% around 2*maxpos to account for inharmonicity
+    const searchStart = Math.max(d, Math.floor(doublePos * 0.95));
+    const searchEnd = Math.min(Math.ceil(doublePos * 1.05), c.length - 1);
+    let subMax = -1;
+    let subPos = -1;
+    for (let i = searchStart; i <= searchEnd; i++) {
+      if (c[i] > subMax) {
+        subMax = c[i];
+        subPos = i;
+      }
+    }
+    const subClarity = subMax / c[0];
+    // Accept the sub-harmonic if it has reasonable correlation strength.
+    // The threshold is lower than the main clarity check (0.4) because
+    // autocorrelation naturally decays at longer lags.
+    if (subClarity > 0.3) {
+      maxpos = subPos;
+      maxval = subMax;
+    }
+  }
+
+  // 5. Parabolic Interpolation for sub-sample precision
   let T0 = maxpos;
   if (T0 > 0 && T0 < c.length - 1) {
     const x1 = c[T0 - 1], x2 = c[T0], x3 = c[T0 + 1];
@@ -79,9 +109,7 @@ function detectPitch(buffer: Float32Array, sampleRate: number) {
 
   const rawFrequency = sampleRate / T0;
 
-  // 5. Median filter with instant snap on large note jumps
-  // If the new reading is far from the current window median and clearly confident,
-  // clear the window so the median snaps immediately instead of slowly drifting over.
+  // 6. Median filter with instant snap on large note jumps
   if (recentFreqs.length > 0) {
     const currentMedian = median(recentFreqs);
     const diffCents = Math.abs(1200 * Math.log2(rawFrequency / currentMedian));

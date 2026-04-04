@@ -21,7 +21,7 @@ export const useAudio = (activeProfile?: TuningProfile | null) => {
       
       const source = audioContext.createMediaStreamSource(stream);
       const processor = audioContext.createAnalyser();
-      processor.fftSize = 2048;
+      processor.fftSize = 4096;
       source.connect(processor);
 
       // Initialize Worker
@@ -47,7 +47,7 @@ export const useAudio = (activeProfile?: TuningProfile | null) => {
       let isRunning = true;
       const poll = () => {
         if (!isRunning) return;
-        const buffer = new Float32Array(2048);
+        const buffer = new Float32Array(4096);
         processor.getFloatTimeDomainData(buffer);
         workerRef.current?.postMessage({ 
           buffer, 
