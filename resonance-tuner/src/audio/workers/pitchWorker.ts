@@ -1,115 +1,182 @@
-// Pitch detection worker with median filtering for stability + responsiveness
-// Features: 4096-sample buffer for low-note support, sub-harmonic verification
-// to prevent octave errors, adaptive clipping, and median window for noise rejection
+// High-precision pitch detection worker using McLeod Pitch Method (MPM) / NSDF
+// + Sub-harmonic verification for guitar/piano bass strings
+// + Spectral harmonic peak analysis for real inharmonicity (B) estimation (Rigaud 2013)
 
 let recentFreqs: number[] = [];
 const MEDIAN_WINDOW = 5;
-const JUMP_THRESHOLD_CENTS = 50;
+const JUMP_THRESHOLD_CENTS = 45;
+let lastValidFrequency = 0;
+let lastValidB = 0.0001;
 
-self.onmessage = (e: MessageEvent) => {
-  const { buffer, sampleRate } = e.data;
-  const result = detectPitch(buffer, sampleRate);
-  self.postMessage(result);
-};
+if (typeof self !== 'undefined' && typeof (self as unknown as { onmessage?: unknown }).onmessage !== 'undefined') {
+  self.onmessage = (e: MessageEvent) => {
+    const { buffer, sampleRate } = e.data;
+    const result = detectPitch(buffer, sampleRate);
+    self.postMessage(result);
+  };
+}
 
-function detectPitch(buffer: Float32Array, sampleRate: number) {
+export function detectPitch(buffer: Float32Array, sampleRate: number) {
   const SIZE = buffer.length;
 
-  // 1. RMS Check
-  let sum = 0;
-  for (let i = 0; i < SIZE; i++) sum += buffer[i] * buffer[i];
-  const rms = Math.sqrt(sum / SIZE);
+  // 1. RMS Check & DC Offset Removal
+  let mean = 0;
+  for (let i = 0; i < SIZE; i++) mean += buffer[i];
+  mean /= SIZE;
 
-  if (rms < 0.01) {
+  let sumSq = 0;
+  const cleanBuffer = new Float32Array(SIZE);
+  for (let i = 0; i < SIZE; i++) {
+    const val = buffer[i] - mean;
+    cleanBuffer[i] = val;
+    sumSq += val * val;
+  }
+  const rms = Math.sqrt(sumSq / SIZE);
+
+  // Noise floor check (~ -46 dBFS)
+  if (rms < 0.005) {
     recentFreqs = [];
-    return { frequency: 0, bCoefficient: 0, clarity: 0, timestamp: Date.now(), isSilent: true };
+    return {
+      frequency: lastValidFrequency,
+      bCoefficient: lastValidB,
+      clarity: 0,
+      timestamp: Date.now(),
+      isSilent: true,
+    };
   }
 
-  // 2. Adaptive clipping — threshold scales with signal level so quiet
-  //    low notes aren't over-trimmed while loud signals still get clipped cleanly
-  let r1 = 0, r2 = SIZE - 1;
-  const threshold = Math.max(0.05, rms * 1.5);
-  for (let i = 0; i < SIZE / 2; i++) {
-    if (Math.abs(buffer[i]) >= threshold) { r1 = i; break; }
-  }
-  for (let i = 1; i < SIZE / 2; i++) {
-    if (Math.abs(buffer[SIZE - i]) >= threshold) { r2 = SIZE - i; break; }
+  // 2. McLeod Pitch Method (Normalized Square Difference Function - NSDF)
+  // Valid frequency range: A0 (27.5 Hz) to C8 (4186 Hz)
+  // Give margin down to 25 Hz and up to 4500 Hz
+  const minTau = Math.max(2, Math.floor(sampleRate / 4500));
+  const maxTau = Math.min(Math.floor(SIZE * 0.75), Math.ceil(sampleRate / 25));
+
+  const nsdf = new Float32Array(maxTau + 1);
+
+  // Precompute cumulative squares to compute m(tau) in O(1) per lag
+  const cumSq = new Float64Array(SIZE + 1);
+  for (let i = 0; i < SIZE; i++) {
+    cumSq[i + 1] = cumSq[i] + cleanBuffer[i] * cleanBuffer[i];
   }
 
-  const clippedBuffer = buffer.slice(r1, r2);
-  if (clippedBuffer.length < SIZE / 4) {
-    const fallback = recentFreqs.length ? median(recentFreqs) : 0;
-    return { frequency: fallback, bCoefficient: 0, clarity: 0, timestamp: Date.now(), isSilent: true };
-  }
-
-  // 3. Autocorrelation on clipped buffer
-  const c = new Float32Array(clippedBuffer.length).fill(0);
-  for (let i = 0; i < clippedBuffer.length; i++) {
-    for (let j = 0; j < clippedBuffer.length - i; j++) {
-      c[i] = c[i] + clippedBuffer[j] * clippedBuffer[j + i];
+  for (let tau = minTau; tau <= maxTau; tau++) {
+    const count = SIZE - tau;
+    let acf = 0;
+    for (let i = 0; i < count; i++) {
+      acf += cleanBuffer[i] * cleanBuffer[i + tau];
     }
+    // m(tau) = sum_{i=0}^{W-1-tau} (x[i]^2 + x[i+tau]^2)
+    const m = cumSq[count] + (cumSq[SIZE] - cumSq[tau]);
+    nsdf[tau] = m > 0 ? (2 * acf) / m : 0;
   }
 
-  // Walk past the initial decreasing region to find the first trough
-  let d = 0;
-  while (d < c.length - 1 && c[d] > c[d + 1]) d++;
+  // 3. Peak Picking (MPM Key Maxima)
+  // Find positive zero crossings and record the maximum within each positive lobe
+  const peaks: { tau: number; val: number }[] = [];
+  let inPositiveLobe = false;
+  let lobeMaxTau = minTau;
+  let lobeMaxVal = -1;
 
-  // Find the highest peak after the first trough
-  let maxval = -1;
-  let maxpos = -1;
-  for (let i = d; i < c.length; i++) {
-    if (c[i] > maxval) {
-      maxval = c[i];
-      maxpos = i;
-    }
+  // Walk past the initial lag-0 lobe first
+  let startTau = minTau;
+  while (startTau < maxTau && nsdf[startTau] > 0 && nsdf[startTau] >= nsdf[startTau + 1]) {
+    startTau++;
+  }
+  while (startTau < maxTau && nsdf[startTau] > 0) {
+    startTau++;
   }
 
-  const clarity = maxval / c[0];
-  if (maxpos === -1 || clarity < 0.4) {
-    const fallback = recentFreqs.length ? median(recentFreqs) : 0;
-    return { frequency: fallback, bCoefficient: 0, clarity: 0, timestamp: Date.now(), isSilent: true };
-  }
-
-  // 4. Sub-harmonic verification — prevent octave errors
-  // Autocorrelation of a periodic signal has peaks at lag T, 2T, 3T...
-  // If we found a peak at lag T, check whether a valid peak exists near 2T.
-  // If it does, the real fundamental is the lower frequency (lag 2T), and
-  // what we found at T was just the second harmonic.
-  const doublePos = maxpos * 2;
-  if (doublePos < c.length - 1) {
-    // Search ±5% around 2*maxpos to account for inharmonicity
-    const searchStart = Math.max(d, Math.floor(doublePos * 0.95));
-    const searchEnd = Math.min(Math.ceil(doublePos * 1.05), c.length - 1);
-    let subMax = -1;
-    let subPos = -1;
-    for (let i = searchStart; i <= searchEnd; i++) {
-      if (c[i] > subMax) {
-        subMax = c[i];
-        subPos = i;
+  for (let tau = startTau; tau <= maxTau; tau++) {
+    const val = nsdf[tau];
+    if (val > 0) {
+      if (!inPositiveLobe) {
+        inPositiveLobe = true;
+        lobeMaxVal = val;
+        lobeMaxTau = tau;
+      } else if (val > lobeMaxVal) {
+        lobeMaxVal = val;
+        lobeMaxTau = tau;
       }
+    } else if (inPositiveLobe) {
+      peaks.push({ tau: lobeMaxTau, val: lobeMaxVal });
+      inPositiveLobe = false;
     }
-    const subClarity = subMax / c[0];
-    // Accept the sub-harmonic if it has reasonable correlation strength.
-    // The threshold is lower than the main clarity check (0.4) because
-    // autocorrelation naturally decays at longer lags.
-    if (subClarity > 0.3) {
-      maxpos = subPos;
-      maxval = subMax;
+  }
+  if (inPositiveLobe && lobeMaxVal > 0) {
+    peaks.push({ tau: lobeMaxTau, val: lobeMaxVal });
+  }
+
+  if (peaks.length === 0) {
+    return {
+      frequency: lastValidFrequency,
+      bCoefficient: lastValidB,
+      clarity: 0,
+      timestamp: Date.now(),
+      isSilent: true,
+    };
+  }
+
+  // Find the highest global peak n_max
+  let globalMaxVal = -1;
+  for (const p of peaks) {
+    if (p.val > globalMaxVal) globalMaxVal = p.val;
+  }
+
+  // Clarity threshold
+  if (globalMaxVal < 0.45) {
+    return {
+      frequency: lastValidFrequency,
+      bCoefficient: lastValidB,
+      clarity: globalMaxVal,
+      timestamp: Date.now(),
+      isSilent: true,
+    };
+  }
+
+  // MPM chooses the FIRST key maximum that exceeds k * globalMaxVal (k ~ 0.90)
+  // Because MPM scans lags from smallest tau (highest frequency) to largest tau (lowest frequency):
+  // - If the 2nd harmonic (tau = T0/2) has a small peak (e.g. 0.40) and the true fundamental (tau = T0) has a strong peak (e.g. 0.95),
+  //   k * globalMaxVal (0.90 * 0.95 = 0.855) skips the weak harmonic peak at T0/2 and picks the true fundamental at T0!
+  // - Simultaneously, because it picks the FIRST peak >= k * globalMaxVal, it hits T0 before 2*T0 or 3*T0, preventing sub-octave errors!
+  const k = 0.90;
+  let chosenPeak = peaks[0];
+  for (const p of peaks) {
+    if (p.val >= k * globalMaxVal) {
+      chosenPeak = p;
+      break;
     }
   }
 
-  // 5. Parabolic Interpolation for sub-sample precision
-  let T0 = maxpos;
-  if (T0 > 0 && T0 < c.length - 1) {
-    const x1 = c[T0 - 1], x2 = c[T0], x3 = c[T0 + 1];
+  // 5. Parabolic Interpolation on NSDF around chosenPeak.tau
+  let T0 = chosenPeak.tau;
+  let clarity = chosenPeak.val;
+  if (T0 > minTau && T0 < maxTau) {
+    const x1 = nsdf[T0 - 1];
+    const x2 = nsdf[T0];
+    const x3 = nsdf[T0 + 1];
     const a = (x1 + x3 - 2 * x2) / 2;
     const b = (x3 - x1) / 2;
-    if (a !== 0) T0 = T0 - b / (2 * a);
+    if (a < 0) {
+      const delta = -b / (2 * a);
+      if (Math.abs(delta) < 1) {
+        T0 += delta;
+        clarity = Math.min(1, x2 - (b * b) / (4 * a));
+      }
+    }
   }
 
   const rawFrequency = sampleRate / T0;
+  if (rawFrequency < 25 || rawFrequency > 4500 || isNaN(rawFrequency)) {
+    return {
+      frequency: lastValidFrequency,
+      bCoefficient: lastValidB,
+      clarity: 0,
+      timestamp: Date.now(),
+      isSilent: true,
+    };
+  }
 
-  // 6. Median filter with instant snap on large note jumps
+  // 6. Median Filter with Instant Snap on Real Note Changes
   if (recentFreqs.length > 0) {
     const currentMedian = median(recentFreqs);
     const diffCents = Math.abs(1200 * Math.log2(rawFrequency / currentMedian));
@@ -122,29 +189,102 @@ function detectPitch(buffer: Float32Array, sampleRate: number) {
   if (recentFreqs.length > MEDIAN_WINDOW) recentFreqs.shift();
 
   const stableFrequency = median(recentFreqs);
-  const bCoefficient = estimateInharmonicity(buffer, sampleRate, stableFrequency);
+  const bCoefficient = estimateInharmonicity(cleanBuffer, sampleRate, stableFrequency);
+
+  lastValidFrequency = stableFrequency;
+  lastValidB = bCoefficient;
 
   return {
     frequency: stableFrequency,
     bCoefficient,
     clarity,
     timestamp: Date.now(),
-    isSilent: false
+    isSilent: false,
   };
 }
 
 function median(values: number[]): number {
   const sorted = [...values].sort((a, b) => a - b);
-  return sorted[Math.floor(sorted.length / 2)];
+  const mid = Math.floor(sorted.length / 2);
+  if (sorted.length % 2 === 0) {
+    return (sorted[mid - 1] + sorted[mid]) / 2;
+  }
+  return sorted[mid];
 }
 
 /**
- * Simplified inharmonicity estimation (B)
- * Based on Rigaud (2013): f_n = n * F0 * sqrt(1 + B * n^2)
+ * Estimates string inharmonicity coefficient B from overtone partials (Rigaud 2013):
+ * f_n = n * F0 * sqrt(1 + B * n^2)  =>  (f_n / (n * F0))^2 - 1 = B * n^2
+ * Uses targeted Goertzel / DFT evaluation around harmonics n = 2..5 to measure real partial stretching,
+ * blended with a physical piano curve fallback when higher partials are weak.
  */
-function estimateInharmonicity(_buffer: Float32Array, _sampleRate: number, f0: number): number {
-  if (f0 < 100) return 0.0004; // Bass
-  if (f0 < 250) return 0.0002; // Low-Mid
-  if (f0 < 600) return 0.0001; // Middle
-  return 0.00005;               // High
+export function estimateInharmonicity(buffer: Float32Array, sampleRate: number, f0: number): number {
+  // Empirical physical curve baseline (Rigaud 2013 / Fletcher)
+  const midi = 12 * Math.log2(f0 / 440) + 69;
+  // Standard grand/upright baseline B curve across keyboard
+  const baselineB = Math.max(
+    0.00004,
+    Math.min(0.015, 0.00012 * Math.exp(0.055 * Math.abs(midi - 55)) + (midi < 45 ? 0.00025 * (45 - midi) : 0))
+  );
+
+  // Measure partials n = 2, 3, 4 if below Nyquist
+  const maxHarmonic = Math.min(5, Math.floor((sampleRate * 0.45) / f0));
+  if (maxHarmonic < 2) return baselineB;
+
+  const N = buffer.length;
+  let numSum = 0;
+  let denSum = 0;
+  let validPartials = 0;
+
+  for (let n = 2; n <= maxHarmonic; n++) {
+    // Search in a small frequency window [n*f0 * 0.998, n*f0 * 1.025]
+    const minF = n * f0 * 0.999;
+    const maxF = n * f0 * (1 + 0.5 * n * n * 0.008);
+    const steps = 11;
+    let bestF = n * f0;
+    let maxMag = 0;
+
+    for (let s = 0; s <= steps; s++) {
+      const testF = minF + ((maxF - minF) * s) / steps;
+      const mag = goertzelMagnitude(buffer, sampleRate, testF, N);
+      if (mag > maxMag) {
+        maxMag = mag;
+        bestF = testF;
+      }
+    }
+
+    if (maxMag > 0.001) {
+      const ratioSq = Math.pow(bestF / (n * f0), 2) - 1;
+      if (ratioSq >= 0 && ratioSq < 0.15) {
+        const bEst = ratioSq / (n * n);
+        numSum += bEst;
+        denSum += 1;
+        validPartials++;
+      }
+    }
+  }
+
+  if (validPartials > 0 && denSum > 0) {
+    const measuredB = numSum / denSum;
+    // Blend 60% measured partial inharmonicity with 40% physical baseline for stability
+    return Math.max(0.00002, Math.min(0.02, measuredB * 0.6 + baselineB * 0.4));
+  }
+
+  return baselineB;
+}
+
+function goertzelMagnitude(buffer: Float32Array, sampleRate: number, targetFreq: number, N: number): number {
+  const omega = (2 * Math.PI * targetFreq) / sampleRate;
+  const coeff = 2 * Math.cos(omega);
+  let s1 = 0;
+  let s2 = 0;
+  // Use first 1024 samples for fast partial peak probing
+  const len = Math.min(N, 1024);
+  for (let i = 0; i < len; i++) {
+    const s0 = buffer[i] + coeff * s1 - s2;
+    s2 = s1;
+    s1 = s0;
+  }
+  const power = s1 * s1 + s2 * s2 - coeff * s1 * s2;
+  return Math.sqrt(Math.max(0, power)) / len;
 }

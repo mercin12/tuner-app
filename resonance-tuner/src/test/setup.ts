@@ -5,25 +5,26 @@ import { vi } from 'vitest';
 class AudioContextMock {
   resume = vi.fn().mockResolvedValue(undefined);
   createMediaStreamSource = vi.fn().mockReturnValue({ connect: vi.fn() });
-  createAnalyser = vi.fn().mockReturnValue({ 
-    fftSize: 2048, 
-    getFloatTimeDomainData: vi.fn() 
+  createAnalyser = vi.fn().mockReturnValue({
+    fftSize: 4096,
+    getFloatTimeDomainData: vi.fn(),
   });
   close = vi.fn().mockResolvedValue(undefined);
-  sampleRate = 44100;
+  sampleRate = 48000;
 }
 
-(window as any).AudioContext = AudioContextMock;
-(window as any).webkitAudioContext = AudioContextMock;
+const win = window as unknown as Record<string, unknown>;
+win.AudioContext = AudioContextMock;
+win.webkitAudioContext = AudioContextMock;
 
 // Mock Navigator MediaDevices
 Object.defineProperty(navigator, 'mediaDevices', {
   value: {
     getUserMedia: vi.fn().mockResolvedValue({
-      getTracks: vi.fn().mockReturnValue([{ stop: vi.fn() }])
-    })
+      getTracks: vi.fn().mockReturnValue([{ stop: vi.fn() }]),
+    }),
   },
-  writable: true
+  writable: true,
 });
 
 // Mock Canvas

@@ -5,6 +5,9 @@ export interface PitchResult {
   clarity: number;
   inTune: boolean;
   isSilent: boolean;
+  targetFreq: number;
+  midiNote: number;
+  bCoefficient: number;
 }
 
 export interface InharmonicityProfile {
